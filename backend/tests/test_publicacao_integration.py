@@ -733,6 +733,23 @@ class TestRSSHelpers:
 class TestRSSVotosDirectCall:
     """Call rss_votos/rss_comparativos endpoint functions directly for coverage."""
 
+    @staticmethod
+    def _mock_request():
+        """Create a proper Starlette Request object for direct endpoint calls."""
+        from starlette.requests import Request
+        from starlette.datastructures import Headers
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/rss/votos",
+            "query_string": b"",
+            "headers": [],
+            "server": ("localhost", 8000),
+            "root_path": "",
+        }
+        return Request(scope)
+
     async def test_rss_votos_direct_with_data(self, db_session):
         """Direct call to rss_votos with propositions and votes in DB."""
         from app.routers.rss import rss_votos
@@ -740,7 +757,7 @@ class TestRSSVotosDirectCall:
         await _create_rss_subscription(db_session, token="direct_tok_1")
         await _create_proposicao_with_votes(db_session, prop_id=40001, temas=["saúde"])
 
-        resp = await rss_votos(token="direct_tok_1", tema=None, uf=None, db=db_session)
+        resp = await rss_votos(request=self._mock_request(), token="direct_tok_1", tema=None, uf=None, db=db_session)
         assert resp.status_code == 200
         assert "<item>" in resp.body.decode("utf-8")
         assert "PL 1/2026" in resp.body.decode("utf-8")
@@ -749,7 +766,7 @@ class TestRSSVotosDirectCall:
         """Direct call with invalid token."""
         from app.routers.rss import rss_votos
 
-        resp = await rss_votos(token="bad_token", tema=None, uf=None, db=db_session)
+        resp = await rss_votos(request=self._mock_request(), token="bad_token", tema=None, uf=None, db=db_session)
         assert resp.status_code == 403
 
     async def test_rss_votos_direct_tema_filter(self, db_session):
@@ -760,7 +777,7 @@ class TestRSSVotosDirectCall:
         await _create_proposicao_with_votes(db_session, prop_id=40002, temas=["saúde"])
         await _create_proposicao_with_votes(db_session, prop_id=40003, temas=["economia"])
 
-        resp = await rss_votos(token="direct_tok_2", tema="saúde", uf=None, db=db_session)
+        resp = await rss_votos(request=self._mock_request(), token="direct_tok_2", tema="saúde", uf=None, db=db_session)
         body = resp.body.decode("utf-8")
         assert "40002" in body or "PL 2/2026" in body
 
@@ -772,7 +789,7 @@ class TestRSSVotosDirectCall:
         await _create_proposicao_with_votes(db_session, prop_id=40004, temas=["saúde"])
         await _create_proposicao_with_votes(db_session, prop_id=40005, temas=["economia"])
 
-        resp = await rss_votos(token="direct_tok_3", tema=None, uf=None, db=db_session)
+        resp = await rss_votos(request=self._mock_request(), token="direct_tok_3", tema=None, uf=None, db=db_session)
         body = resp.body.decode("utf-8")
         # economia should pass filter, saúde should not
         assert "40004" not in body
@@ -783,7 +800,7 @@ class TestRSSVotosDirectCall:
 
         await _create_rss_subscription(db_session, token="direct_tok_4")
 
-        resp = await rss_votos(token="direct_tok_4", tema=None, uf=None, db=db_session)
+        resp = await rss_votos(request=self._mock_request(), token="direct_tok_4", tema=None, uf=None, db=db_session)
         body = resp.body.decode("utf-8")
         assert "<rss" in body
         assert "<item>" not in body
@@ -795,7 +812,7 @@ class TestRSSVotosDirectCall:
         await _create_rss_subscription(db_session, token="comp_direct_1")
         await _create_comparativo(db_session, proposicao_id=40010)
 
-        resp = await rss_comparativos(token="comp_direct_1", db=db_session)
+        resp = await rss_comparativos(request=self._mock_request(), token="comp_direct_1", db=db_session)
         body = resp.body.decode("utf-8")
         assert resp.status_code == 200
         assert "<item>" in body
@@ -807,7 +824,7 @@ class TestRSSVotosDirectCall:
         """Direct call to rss_comparativos with invalid token."""
         from app.routers.rss import rss_comparativos
 
-        resp = await rss_comparativos(token="bad_token", db=db_session)
+        resp = await rss_comparativos(request=self._mock_request(), token="bad_token", db=db_session)
         assert resp.status_code == 403
 
     async def test_rss_comparativos_direct_empty(self, db_session):
@@ -816,7 +833,7 @@ class TestRSSVotosDirectCall:
 
         await _create_rss_subscription(db_session, token="comp_direct_2")
 
-        resp = await rss_comparativos(token="comp_direct_2", db=db_session)
+        resp = await rss_comparativos(request=self._mock_request(), token="comp_direct_2", db=db_session)
         body = resp.body.decode("utf-8")
         assert "<rss" in body
         assert "<item>" not in body

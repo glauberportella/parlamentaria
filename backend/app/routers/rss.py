@@ -3,12 +3,13 @@
 from datetime import datetime, timezone
 from typing import Sequence
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.domain.voto_popular import VotoPopular, VotoEnum
+from app.middleware import limiter
 from app.domain.proposicao import Proposicao
 from app.domain.comparativo import ComparativoVotacao
 from app.services.publicacao_service import PublicacaoService
@@ -76,7 +77,9 @@ def _build_comparativo_item(comparativo: ComparativoVotacao) -> str:
 
 
 @router.get("/votos", response_class=Response)
+@limiter.limit("30/minute")
 async def rss_votos(
+    request: Request,
     token: str = Query(..., description="RSS subscription token"),
     tema: str | None = Query(None, description="Filter by theme"),
     uf: str | None = Query(None, description="Filter by UF"),
@@ -148,7 +151,9 @@ async def rss_votos(
 
 
 @router.get("/comparativos", response_class=Response)
+@limiter.limit("30/minute")
 async def rss_comparativos(
+    request: Request,
     token: str = Query(..., description="RSS subscription token"),
     db: AsyncSession = Depends(get_db),
 ) -> Response:

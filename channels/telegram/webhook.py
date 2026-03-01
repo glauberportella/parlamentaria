@@ -14,6 +14,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 
 from app.config import settings
 from app.logging import get_logger
+from app.middleware import limiter
 from channels.telegram.bot import TelegramAdapter
 from channels.telegram.handlers import handle_callback, handle_command
 
@@ -53,6 +54,7 @@ def _validate_secret_token(
 
 
 @router.post("/webhook/telegram")
+@limiter.limit("60/minute")
 async def telegram_webhook(
     request: Request,
     x_telegram_bot_api_secret_token: str | None = Header(None),

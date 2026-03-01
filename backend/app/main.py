@@ -4,11 +4,16 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.exceptions import AppException
 from app.logging import setup_logging, get_logger
+from app.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, limiter
 from app.routers import health, webhooks, admin, rss, assinaturas
 
 logger = get_logger(__name__)
@@ -49,6 +54,26 @@ app = FastAPI(
     docs_url="/docs" if settings.app_debug else None,
     redoc_url=None,
 )
+
+# Rate limiter state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS — restrict in production, permissive in dev
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if settings.app_debug else [],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
+# Trusted hosts (production)
+if settings.is_production:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["parlamentaria.app", "*.parlamentaria.app"])
+
+# Custom middlewares (order matters: outermost first)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIdMiddleware)
 
 
 @app.exception_handler(AppException)

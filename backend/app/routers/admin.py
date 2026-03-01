@@ -1,11 +1,12 @@
 """Admin endpoints — protected by API key."""
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies import get_db
 from app.exceptions import UnauthorizedException
+from app.middleware import limiter
 from app.schemas.proposicao import ProposicaoResponse
 from app.schemas.eleitor import EleitorResponse
 from app.schemas.comparativo import ComparativoResponse
@@ -25,7 +26,9 @@ async def verify_api_key(x_api_key: str = Header(...)) -> str:
 
 
 @router.get("/proposicoes", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
 async def list_proposicoes(
+    request: Request,
     tipo: str | None = Query(None),
     ano: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -40,7 +43,9 @@ async def list_proposicoes(
 
 
 @router.get("/eleitores", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
 async def list_eleitores(
+    request: Request,
     uf: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -54,7 +59,9 @@ async def list_eleitores(
 
 
 @router.get("/votacoes/resultado/{proposicao_id}", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
 async def get_resultado_votacao(
+    request: Request,
     proposicao_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -64,7 +71,9 @@ async def get_resultado_votacao(
 
 
 @router.post("/proposicoes/{proposicao_id}/analisar", dependencies=[Depends(verify_api_key)])
+@limiter.limit("10/minute")
 async def trigger_analise(
+    request: Request,
     proposicao_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -74,7 +83,9 @@ async def trigger_analise(
 
 
 @router.get("/comparativos", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
 async def list_comparativos(
+    request: Request,
     limit: int = Query(100, le=500),
     db: AsyncSession = Depends(get_db),
 ) -> dict:

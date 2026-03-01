@@ -1,16 +1,56 @@
-FROM python:3.12-slim AS base
+##############################################################################
+# Stage 1 — Builder: install dependencies
+##############################################################################
+FROM python:3.12-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
+# Install production dependencies only
+RUN pip install --no-cache-dir --prefix=/install .
 
-COPY . .
+
+##############################################################################
+# Stage 2 — Runtime: lean production image
+##############################################################################
+FROM python:3.12-slim AS runtime
+
+LABEL maintainer="Parlamentaria <contato@parlamentaria.app>"
+LABEL org.opencontainers.image.description="Parlamentaria API — plataforma agêntica legislativa"
+
+# Security: run as non-root user
+RUN groupadd --gid 1000 appuser \
+    && useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
+
+WORKDIR /app
+
+# Copy installed Python packages from builder stage
+COPY --from=builder /install /usr/local
+
+# Copy application code
+COPY app/ ./app/
+
+# Non-root user
+USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Gunicorn + Uvicorn workers for production
+# Workers = 2 * CPU cores + 1 (set via WEB_CONCURRENCY env var)
+ENV WEB_CONCURRENCY=2
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+
+CMD ["python", "-m", "gunicorn", "app.main:app", \
+     "-w", "${WEB_CONCURRENCY}", \
+     "-k", "uvicorn.workers.UvicornWorker", \
+     "--bind", "0.0.0.0:8000", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

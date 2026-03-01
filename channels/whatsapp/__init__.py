@@ -1,1 +1,5 @@
-"""WhatsApp channel adapter package — placeholder for future implementation."""
+"""WhatsApp channel adapter package."""
+
+from channels.whatsapp.adapter import WhatsAppAdapter
+
+__all__ = ["WhatsAppAdapter"]

@@ -287,7 +287,7 @@ Nenhum dado sigiloso é acessado. Toda informação é pública e de livre acess
 - [x] **Fase 5** — Votação Popular: fluxo de voto, consolidação, notificações
 - [x] **Fase 6** — Publicação: RSS Feed, webhooks de saída
 - [x] **Fase 7** — Comparativo: voto popular vs real, feedback ao eleitor
-- [ ] **Fase 8** — Polimento: segurança, monitoring, deploy, WhatsApp
+- [x] **Fase 8** — Polimento: segurança, monitoring, deploy, WhatsApp
 
 ---
 

@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     telegram_webhook_url: str = ""
     telegram_webhook_secret: str = ""
 
+    # WhatsApp Business API
+    whatsapp_api_token: str = ""
+    whatsapp_phone_number_id: str = ""
+    whatsapp_webhook_verify_token: str = ""
+    whatsapp_api_base_url: str = "https://graph.facebook.com/v21.0"
+
     # Admin API
     admin_api_key: str = "change-me-random-64-chars"
 
