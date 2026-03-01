@@ -79,3 +79,25 @@ class VotoPopularRepository(BaseRepository[VotoPopular]):
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def list_by_proposicao(
+        self, proposicao_id: int, offset: int = 0, limit: int = 500
+    ) -> Sequence[VotoPopular]:
+        """List all votes for a specific proposition.
+
+        Args:
+            proposicao_id: Proposition ID.
+            offset: Number of records to skip.
+            limit: Maximum number of records.
+
+        Returns:
+            Sequence of votes.
+        """
+        stmt = (
+            select(VotoPopular)
+            .where(VotoPopular.proposicao_id == proposicao_id)
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()

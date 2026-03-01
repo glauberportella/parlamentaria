@@ -67,6 +67,9 @@ class EleitorRepository(BaseRepository[Eleitor]):
     ) -> Sequence[Eleitor]:
         """Find voters interested in a specific theme.
 
+        Uses a type-aware approach: PostgreSQL ARRAY ``any()`` for production,
+        JSON string matching for test environments where ARRAY is adapted to JSON.
+
         Args:
             tema: Theme to filter by.
             offset: Number of records to skip.
@@ -75,11 +78,34 @@ class EleitorRepository(BaseRepository[Eleitor]):
         Returns:
             Sequence of voters interested in the theme.
         """
-        stmt = (
-            select(Eleitor)
-            .where(Eleitor.temas_interesse.any(tema))
-            .offset(offset)
-            .limit(limit)
-        )
+        from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
+
+        col_type = Eleitor.__table__.columns["temas_interesse"].type
+        is_native_array = isinstance(col_type, PG_ARRAY)
+
+        if is_native_array:
+            # PostgreSQL: native ARRAY any()
+            stmt = (
+                select(Eleitor)
+                .where(Eleitor.temas_interesse.any(tema))
+                .offset(offset)
+                .limit(limit)
+            )
+        else:
+            # JSON column (SQLite/tests): use text() with json_each
+            from sqlalchemy import text
+
+            stmt = (
+                select(Eleitor)
+                .where(
+                    Eleitor.temas_interesse.isnot(None),
+                    text(
+                        "EXISTS (SELECT 1 FROM json_each(eleitores.temas_interesse) WHERE value = :tema)"
+                    ).bindparams(tema=tema),
+                )
+                .offset(offset)
+                .limit(limit)
+            )
+
         result = await self.session.execute(stmt)
         return result.scalars().all()

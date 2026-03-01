@@ -18,6 +18,9 @@ from agents.parlamentar.tools.votacao_tools import (
     consultar_meu_voto,
     historico_votos_eleitor,
 )
+from agents.parlamentar.tools.notification_tools import (
+    enviar_resultado_votacao,
+)
 
 votacao_agent = LlmAgent(
     name="VotacaoAgent",
@@ -36,5 +39,6 @@ votacao_agent = LlmAgent(
         historico_votos_eleitor,
         buscar_votacoes_recentes,
         obter_votos_parlamentares,
+        enviar_resultado_votacao,
     ],
 )
