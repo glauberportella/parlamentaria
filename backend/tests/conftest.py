@@ -2,10 +2,17 @@
 
 import asyncio
 import sqlite3
+import sys
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import date, datetime, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Add project root to path so agents/ package is importable from tests
+_project_root = str(Path(__file__).resolve().parent.parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 import pytest
 from httpx import ASGITransport, AsyncClient
