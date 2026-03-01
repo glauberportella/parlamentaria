@@ -13,6 +13,62 @@ import {
   GitCompareArrows,
   ThumbsUp,
 } from "lucide-react";
+import { MermaidDiagram } from "@/components/MermaidDiagram";
+
+const architectureChart = `graph TD
+  subgraph ENTRADA["🧑 Eleitor"]
+    TG["📱 Telegram"]
+    WA["📱 WhatsApp"]
+  end
+
+  subgraph GATEWAY["Channel Gateway"]
+    WH["Webhooks + Adapters"]
+  end
+
+  subgraph ADK["🤖 ParlamentarAgent · Google ADK + Gemini"]
+    ROOT["Root Agent"]
+    PA["📋 Proposição Agent<br/><small>buscar · resumir · analisar</small>"]
+    VA["🗳️ Votação Agent<br/><small>votar · resultado</small>"]
+    DA["🏛️ Deputado Agent<br/><small>perfil · gastos</small>"]
+    EA["👤 Eleitor Agent<br/><small>cadastro · preferências</small>"]
+    PUA["📡 Publicação Agent<br/><small>comparar · feedback · RSS</small>"]
+  end
+
+  subgraph INFRA["Infraestrutura"]
+    PG["🐘 PostgreSQL<br/><small>dados</small>"]
+    RD["⚡ Redis<br/><small>cache + filas</small>"]
+    API["🏛️ API Câmara<br/><small>dados abertos</small>"]
+  end
+
+  subgraph SAIDA["📡 Saída para Parlamentares"]
+    RSS["📰 RSS Feed"]
+    WHK["🔗 Webhooks"]
+  end
+
+  TG --> WH
+  WA --> WH
+  WH --> ROOT
+  ROOT --> PA
+  ROOT --> VA
+  ROOT --> DA
+  ROOT --> EA
+  ROOT --> PUA
+  PA --> PG
+  PA --> API
+  VA --> PG
+  DA --> API
+  EA --> PG
+  PUA --> RSS
+  PUA --> WHK
+  ROOT --> RD
+
+  style ENTRADA fill:#e8f5ee,stroke:#009c3b,color:#171717
+  style GATEWAY fill:#eef2ff,stroke:#002776,color:#171717
+  style ADK fill:#f0fdf4,stroke:#009c3b,color:#171717
+  style INFRA fill:#fff9db,stroke:#e6c900,color:#171717
+  style SAIDA fill:#eef2ff,stroke:#002776,color:#171717
+`;
+
 
 const colorMap: Record<string, { bg: string; text: string }> = {
   "brand-blue": { bg: "bg-brand-blue/10", text: "text-brand-blue" },
@@ -189,35 +245,9 @@ export default function ComoFuncionaPage() {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            className="bg-white rounded-2xl border border-neutral-200 p-8 overflow-x-auto"
+            className="bg-white rounded-2xl border border-neutral-200 p-6 sm:p-8"
           >
-            <pre className="text-xs sm:text-sm font-mono text-neutral-700 leading-relaxed">
-              {`  Eleitor (Telegram/WhatsApp)
-        │
-        ▼
-  ┌─────────────────────────────────────────────┐
-  │          Channel Gateway                    │
-  │     (Webhooks + Adapters)                   │
-  └──────────────────┬──────────────────────────┘
-                     │
-  ┌──────────────────▼──────────────────────────┐
-  │       ParlamentarAgent (Root)               │
-  │       Google ADK • Gemini                   │
-  ├─────┬─────┬──────┬──────┬───────────────────┤
-  │     │     │      │      │                   │
-  │  Proposição  Votação  Deputado  Eleitor  Publicação
-  │  Agent      Agent    Agent     Agent    Agent
-  │     │         │        │         │        │
-  │  [buscar]  [votar]  [perfil] [cadastro] [comparar]
-  │  [resumir] [result] [gastos] [prefer.]  [feedback]
-  │  [analisar]                              [RSS]
-  └──────────────────┬──────────────────────────┘
-                     │
-        ┌────────────┼────────────┐
-        │            │            │
-   PostgreSQL     Redis       API Câmara
-   (dados)      (cache)     (dados abertos)`}
-            </pre>
+            <MermaidDiagram chart={architectureChart} />
           </motion.div>
         </div>
       </section>
