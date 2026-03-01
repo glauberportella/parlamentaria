@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.exceptions import AppException
 from app.logging import setup_logging, get_logger
-from app.routers import health, webhooks, admin
+from app.routers import health, webhooks, admin, rss, assinaturas
 
 logger = get_logger(__name__)
 
@@ -65,3 +65,5 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 app.include_router(health.router)
 app.include_router(webhooks.router)
 app.include_router(admin.router)
+app.include_router(rss.router)
+app.include_router(assinaturas.router)
