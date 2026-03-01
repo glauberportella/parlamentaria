@@ -118,16 +118,23 @@ async def rss_votos(
     from app.services.proposicao_service import ProposicaoService
     prop_service = ProposicaoService(db)
 
+    # Build effective theme filter: query param > subscription config
+    active_temas: list[str] = []
+    if tema:
+        active_temas = [tema.lower()]
+    elif assinatura.filtro_temas:
+        active_temas = [t.lower() for t in assinatura.filtro_temas]
+
     for prop_id in proposicao_ids[:50]:  # Limit feed to 50 latest
         try:
             proposicao = await prop_service.get_by_id(prop_id)
         except Exception:
             continue
 
-        # Apply theme filter (from subscription or query)
-        active_tema = tema or (assinatura.filtro_temas[0] if assinatura.filtro_temas else None)
-        if active_tema and proposicao.temas:
-            if active_tema.lower() not in [t.lower() for t in proposicao.temas]:
+        # Apply theme filter
+        if active_temas and proposicao.temas:
+            prop_temas_lower = [t.lower() for t in proposicao.temas]
+            if not any(t in prop_temas_lower for t in active_temas):
                 continue
 
         resultado = await voto_service.obter_resultado(prop_id)

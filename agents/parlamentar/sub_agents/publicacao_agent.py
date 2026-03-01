@@ -11,6 +11,8 @@ from agents.parlamentar.prompts import PUBLICACAO_AGENT_INSTRUCTION
 from agents.parlamentar.tools.publicacao_tools import (
     obter_comparativo,
     status_publicacao,
+    consultar_assinaturas_ativas,
+    disparar_evento_publicacao,
 )
 
 publicacao_agent = LlmAgent(
@@ -27,5 +29,7 @@ publicacao_agent = LlmAgent(
     tools=[
         obter_comparativo,
         status_publicacao,
+        consultar_assinaturas_ativas,
+        disparar_evento_publicacao,
     ],
 )

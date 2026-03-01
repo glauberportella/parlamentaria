@@ -9,7 +9,14 @@ from app.logging import get_logger
 logger = get_logger(__name__)
 
 
-@celery_app.task(name="app.tasks.dispatch_webhooks.dispatch_webhooks_task")
+@celery_app.task(
+    name="app.tasks.dispatch_webhooks.dispatch_webhooks_task",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    max_retries=3,
+    retry_jitter=True,
+)
 def dispatch_webhooks_task(evento: str, payload: dict) -> dict:
     """Dispatch a webhook event to all subscribed endpoints.
 

@@ -285,7 +285,7 @@ Nenhum dado sigiloso é acessado. Toda informação é pública e de livre acess
 - [x] **Fase 3** — Agentes de IA: root agent, 5 sub-agents, 25 tools, sessions, eval datasets
 - [x] **Fase 4** — Canal Telegram: bot, webhooks, inline keyboards
 - [x] **Fase 5** — Votação Popular: fluxo de voto, consolidação, notificações
-- [ ] **Fase 6** — Publicação: RSS Feed, webhooks de saída
+- [x] **Fase 6** — Publicação: RSS Feed, webhooks de saída
 - [ ] **Fase 7** — Comparativo: voto popular vs real, feedback ao eleitor
 - [ ] **Fase 8** — Polimento: segurança, monitoring, deploy, WhatsApp
 

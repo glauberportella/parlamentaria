@@ -849,8 +849,8 @@ class TestPublicacaoTools:
         mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("agents.parlamentar.tools.publicacao_tools.async_session_factory", mock_sf), \
-             patch("agents.parlamentar.tools.publicacao_tools.ComparativoService") as MockService:
+        with patch("app.db.session.async_session_factory", mock_sf), \
+             patch("app.services.comparativo_service.ComparativoService") as MockService:
             mock_svc = AsyncMock()
             mock_svc.get_by_proposicao = AsyncMock(return_value=None)
             MockService.return_value = mock_svc
@@ -878,8 +878,8 @@ class TestPublicacaoTools:
         mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("agents.parlamentar.tools.publicacao_tools.async_session_factory", mock_sf), \
-             patch("agents.parlamentar.tools.publicacao_tools.ComparativoService") as MockService:
+        with patch("app.db.session.async_session_factory", mock_sf), \
+             patch("app.services.comparativo_service.ComparativoService") as MockService:
             mock_svc = AsyncMock()
             mock_svc.get_by_proposicao = AsyncMock(return_value=mock_comp)
             MockService.return_value = mock_svc
