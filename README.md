@@ -283,7 +283,7 @@ Nenhum dado sigiloso é acessado. Toda informação é pública e de livre acess
 - [x] **Fase 1** — Fundação: setup, banco de dados, integração API Câmara, modelos, testes
 - [x] **Fase 2** — Core Backend: services, repositórios, sincronização Celery, routers RSS/admin
 - [x] **Fase 3** — Agentes de IA: root agent, 5 sub-agents, 25 tools, sessions, eval datasets
-- [ ] **Fase 4** — Canal Telegram: bot, webhooks, inline keyboards
+- [x] **Fase 4** — Canal Telegram: bot, webhooks, inline keyboards
 - [ ] **Fase 5** — Votação Popular: fluxo de voto, consolidação, notificações
 - [ ] **Fase 6** — Publicação: RSS Feed, webhooks de saída
 - [ ] **Fase 7** — Comparativo: voto popular vs real, feedback ao eleitor
