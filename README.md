@@ -242,16 +242,22 @@ A Parlamentaria é um projeto de **democracia participativa sobre democracia par
 
 ### Ideias para contribuições
 
+> As 8 fases do roadmap estão implementadas (591 testes, 94%+ de cobertura). As oportunidades abaixo são melhorias, expansões e refinamentos sobre a base existente.
+
 | Área | O que fazer |
 |------|-------------|
-| 📱 Telegram | Inline keyboards, comandos, fluxos conversacionais |
-| 🗳️ Votação | Fluxo de votação popular via chat, consolidação |
-| 📊 Análise | Melhorar prompts de análise legislativa |
-| 📡 RSS/Webhooks | Feed RSS público, dispatch de webhooks |
-| 🧪 Testes | Aumentar cobertura, testes de integração, eval de agentes |
-| 📝 Documentação | Guias, tutoriais, tradução para inglês |
-| 🔒 Segurança | Rate limiting, validação de webhooks, auditoria |
-| ♿ Acessibilidade | Linguagem simples, suporte a áudio, inclusão digital |
+| 📱 WhatsApp | Homologação do adapter com a API real da Meta, testes em produção |
+| 💬 Grupos Telegram | Suporte a interação em grupos (enquetes, votações coletivas) |
+| 🧠 Prompts IA | Refinar prompts de análise legislativa, testar com diferentes LLMs |
+| 🧪 Testes E2E | Testes end-to-end com agentes reais, rodar ADK eval com LLM |
+| 🏛️ Senado Federal | Expandir para API do Senado (novos endpoints, modelos, agentes) |
+| 📝 Documentação | Guias de contribuição, docs de arquitetura, tradução para inglês |
+| 🚀 CI/CD | GitHub Actions completo (lint, test, build, deploy automatizado) |
+| 📊 Monitoramento | Integração com Prometheus/Grafana, dashboards, alertas |
+| ♿ Acessibilidade | Suporte a mensagens de áudio, linguagem mais simples, inclusão digital |
+| 🌐 Internacionalização | Suporte a espanhol e inglês para comunidades de imigrantes |
+| ⚡ Performance | Otimizar queries SQL, cache Redis avançado, paginação assíncrona |
+| 🔐 Auditoria | Logs de auditoria, rastreabilidade de votos, compliance LGPD |
 
 ---
 
