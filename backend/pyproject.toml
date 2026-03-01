@@ -26,6 +26,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "python-multipart>=0.0.9",
     "google-adk>=1.0.0",
+    "python-telegram-bot>=21.0",
 ]
 
 [project.optional-dependencies]
