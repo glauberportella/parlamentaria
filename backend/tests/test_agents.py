@@ -124,6 +124,10 @@ class TestAgentStructure:
         tool_names = [t.__name__ if callable(t) else str(t) for t in publicacao_agent.tools]
         assert "obter_comparativo" in tool_names
         assert "status_publicacao" in tool_names
+        assert "consultar_assinaturas_ativas" in tool_names
+        assert "disparar_evento_publicacao" in tool_names
+        assert "listar_comparativos_recentes" in tool_names
+        assert "consultar_historico_votos" in tool_names
 
     def test_all_agents_use_same_model(self):
         from agents.parlamentar.agent import root_agent

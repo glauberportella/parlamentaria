@@ -228,17 +228,36 @@ class TestGerarComparativosTask:
         mock_result.scalars.return_value.all.return_value = [mock_votacao]
         mock_session.execute = AsyncMock(return_value=mock_result)
 
+        # Mock proposicao fetch for notifications
+        mock_proposicao = MagicMock()
+        mock_proposicao.tipo = "PL"
+        mock_proposicao.numero = 1234
+        mock_proposicao.ano = 2026
+        mock_session.get = AsyncMock(return_value=mock_proposicao)
+
         with patch(
             "app.services.comparativo_service.ComparativoService"
         ) as MockService:
             mock_service = AsyncMock()
-            mock_service.get_by_proposicao = AsyncMock(return_value=None)
-            mock_service.gerar_comparativo = AsyncMock(return_value=MagicMock())
+            mock_service.exists_for_votacao = AsyncMock(return_value=False)
+            mock_comparativo = MagicMock()
+            mock_comparativo.voto_popular_sim = 100
+            mock_comparativo.voto_popular_nao = 50
+            mock_comparativo.voto_popular_abstencao = 10
+            mock_comparativo.alinhamento = 0.8
+            mock_service.gerar_comparativo = AsyncMock(return_value=mock_comparativo)
             MockService.return_value = mock_service
 
-            result = gerar_comparativos_task()
-            assert result["generated"] == 1
-            assert result["skipped"] == 0
+            with patch("app.tasks.dispatch_webhooks.dispatch_webhooks_task") as mock_dispatch, \
+                 patch("app.tasks.notificar_eleitores.notificar_comparativo_task") as mock_notif:
+                mock_dispatch.delay = MagicMock()
+                mock_notif.delay = MagicMock()
+
+                result = gerar_comparativos_task()
+                assert result["generated"] == 1
+                assert result["skipped"] == 0
+                assert result["webhooks_dispatched"] == 1
+                assert result["notifications_triggered"] == 1
 
     @patch("app.tasks.gerar_comparativos.get_async_session")
     def test_task_skips_existing_comparativos(self, mock_session_ctx):
@@ -264,7 +283,7 @@ class TestGerarComparativosTask:
             "app.services.comparativo_service.ComparativoService"
         ) as MockService:
             mock_service = AsyncMock()
-            mock_service.get_by_proposicao = AsyncMock(return_value=MagicMock())  # Already exists
+            mock_service.exists_for_votacao = AsyncMock(return_value=True)  # Already exists
             MockService.return_value = mock_service
 
             result = gerar_comparativos_task()

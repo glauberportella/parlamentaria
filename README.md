@@ -286,7 +286,7 @@ Nenhum dado sigiloso é acessado. Toda informação é pública e de livre acess
 - [x] **Fase 4** — Canal Telegram: bot, webhooks, inline keyboards
 - [x] **Fase 5** — Votação Popular: fluxo de voto, consolidação, notificações
 - [x] **Fase 6** — Publicação: RSS Feed, webhooks de saída
-- [ ] **Fase 7** — Comparativo: voto popular vs real, feedback ao eleitor
+- [x] **Fase 7** — Comparativo: voto popular vs real, feedback ao eleitor
 - [ ] **Fase 8** — Polimento: segurança, monitoring, deploy, WhatsApp
 
 ---

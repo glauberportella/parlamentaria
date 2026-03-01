@@ -75,15 +75,12 @@ async def trigger_analise(
 
 @router.get("/comparativos", dependencies=[Depends(verify_api_key)])
 async def list_comparativos(
+    limit: int = Query(100, le=500),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """List pop vs real vote comparatives."""
-    from sqlalchemy import select
-    from app.domain.comparativo import ComparativoVotacao
-
-    stmt = select(ComparativoVotacao).order_by(ComparativoVotacao.data_geracao.desc()).limit(100)
-    result = await db.execute(stmt)
-    comparativos = result.scalars().all()
+    service = ComparativoService(db)
+    comparativos = await service.list_recent(limit=limit)
     return {
         "total": len(comparativos),
         "items": [ComparativoResponse.model_validate(c) for c in comparativos],

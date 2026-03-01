@@ -178,3 +178,123 @@ async def disparar_evento_publicacao(
             }
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
+
+async def listar_comparativos_recentes(limite: int = 10) -> dict:
+    """Lista os comparativos mais recentes entre voto popular e resultado parlamentar.
+
+    Mostra os últimos comparativos gerados, incluindo o alinhamento
+    entre a vontade popular e a decisão da Câmara.
+
+    Args:
+        limite: Número máximo de comparativos a retornar (padrão: 10).
+
+    Returns:
+        Dict com lista de comparativos recentes e seus dados de alinhamento.
+    """
+    try:
+        from app.db.session import async_session_factory
+        from app.services.comparativo_service import ComparativoService
+
+        async with async_session_factory() as session:
+            service = ComparativoService(session)
+            comparativos = await service.list_recent(limit=min(limite, 20))
+
+            items = []
+            for comp in comparativos:
+                total_pop = comp.voto_popular_sim + comp.voto_popular_nao + comp.voto_popular_abstencao
+                pct_sim = round(comp.voto_popular_sim / total_pop * 100, 1) if total_pop > 0 else 0.0
+
+                items.append({
+                    "proposicao_id": comp.proposicao_id,
+                    "resultado_camara": comp.resultado_camara,
+                    "voto_popular_sim_pct": pct_sim,
+                    "alinhamento": round(comp.alinhamento * 100, 1),
+                    "data_geracao": str(comp.data_geracao),
+                })
+
+            return {
+                "status": "success",
+                "total": len(items),
+                "comparativos": items,
+                "mensagem": (
+                    f"{len(items)} comparativos encontrados."
+                    if items
+                    else "Nenhum comparativo disponível ainda."
+                ),
+            }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+async def consultar_historico_votos(chat_id: str) -> dict:
+    """Consulta o histórico de votos do eleitor com resultados de comparativos.
+
+    Para cada voto que o eleitor deu, mostra se a Câmara já votou
+    e qual foi o alinhamento entre o voto popular e o resultado real.
+
+    Args:
+        chat_id: ID do chat do eleitor no mensageiro.
+
+    Returns:
+        Dict com o histórico de votos do eleitor e comparativos disponíveis.
+    """
+    try:
+        from app.db.session import async_session_factory
+        from app.services.eleitor_service import EleitorService
+        from app.services.comparativo_service import ComparativoService
+        from app.repositories.voto_popular import VotoPopularRepository
+
+        async with async_session_factory() as session:
+            eleitor_service = EleitorService(session)
+            eleitor = await eleitor_service.get_by_chat_id(chat_id)
+
+            if eleitor is None:
+                return {
+                    "status": "not_found",
+                    "message": "Eleitor não cadastrado. Faça o cadastro para participar.",
+                }
+
+            voto_repo = VotoPopularRepository(session)
+            votos = await voto_repo.list_by_eleitor(eleitor.id, limit=20)
+
+            if not votos:
+                return {
+                    "status": "success",
+                    "total": 0,
+                    "votos": [],
+                    "mensagem": "Você ainda não votou em nenhuma proposição.",
+                }
+
+            comparativo_service = ComparativoService(session)
+            items = []
+            for voto in votos:
+                item = {
+                    "proposicao_id": voto.proposicao_id,
+                    "seu_voto": voto.voto.value if hasattr(voto.voto, "value") else str(voto.voto),
+                    "data_voto": str(voto.data_voto),
+                    "comparativo": None,
+                }
+
+                comp = await comparativo_service.get_by_proposicao(voto.proposicao_id)
+                if comp:
+                    item["comparativo"] = {
+                        "resultado_camara": comp.resultado_camara,
+                        "alinhamento": round(comp.alinhamento * 100, 1),
+                    }
+
+                items.append(item)
+
+            com_comparativo = sum(1 for i in items if i["comparativo"] is not None)
+            return {
+                "status": "success",
+                "total": len(items),
+                "com_comparativo": com_comparativo,
+                "votos": items,
+                "mensagem": (
+                    f"Você votou em {len(items)} proposições. "
+                    f"{com_comparativo} já tiveram resultado na Câmara."
+                ),
+            }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}

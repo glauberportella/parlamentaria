@@ -1,12 +1,14 @@
 """Service for ComparativoVotacao — comparing popular and parliamentary votes."""
 
 import uuid
+from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.comparativo import ComparativoVotacao
 from app.exceptions import NotFoundException
 from app.logging import get_logger
+from app.repositories.comparativo import ComparativoRepository
 from app.repositories.proposicao import ProposicaoRepository
 from app.repositories.votacao import VotacaoRepository
 from app.repositories.voto_popular import VotoPopularRepository
@@ -42,6 +44,7 @@ class ComparativoService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self.comparativo_repo = ComparativoRepository(session)
         self.proposicao_repo = ProposicaoRepository(session)
         self.votacao_repo = VotacaoRepository(session)
         self.voto_popular_repo = VotoPopularRepository(session)
@@ -109,10 +112,89 @@ class ComparativoService:
         Returns:
             ComparativoVotacao or None.
         """
-        from sqlalchemy import select
+        return await self.comparativo_repo.get_by_proposicao(proposicao_id)
 
-        stmt = select(ComparativoVotacao).where(
-            ComparativoVotacao.proposicao_id == proposicao_id
-        ).order_by(ComparativoVotacao.data_geracao.desc()).limit(1)
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+    async def list_comparativos(
+        self, offset: int = 0, limit: int = 50
+    ) -> Sequence[ComparativoVotacao]:
+        """List all comparatives with pagination.
+
+        Args:
+            offset: Number of records to skip.
+            limit: Maximum number of records.
+
+        Returns:
+            Sequence of ComparativoVotacao.
+        """
+        return await self.comparativo_repo.list_all(offset=offset, limit=limit)
+
+    async def list_recent(self, limit: int = 20) -> Sequence[ComparativoVotacao]:
+        """List the most recent comparatives.
+
+        Args:
+            limit: Maximum number to return.
+
+        Returns:
+            Sequence of recent ComparativoVotacao.
+        """
+        return await self.comparativo_repo.list_recent(limit=limit)
+
+    async def exists_for_votacao(self, votacao_camara_id: int) -> bool:
+        """Check if a comparative already exists for a parliamentary vote.
+
+        Args:
+            votacao_camara_id: Parliamentary vote session ID.
+
+        Returns:
+            True if a comparative exists.
+        """
+        return await self.comparativo_repo.exists_for_votacao(votacao_camara_id)
+
+    async def get_comparativo_with_proposicao(
+        self, proposicao_id: int
+    ) -> dict | None:
+        """Get comparative with enriched proposicao details.
+
+        Args:
+            proposicao_id: Proposition ID.
+
+        Returns:
+            Dict with comparative and proposicao info, or None.
+        """
+        comparativo = await self.comparativo_repo.get_by_proposicao(proposicao_id)
+        if comparativo is None:
+            return None
+
+        proposicao = await self.proposicao_repo.get_by_id(proposicao_id)
+        alinhamento_pct = round(comparativo.alinhamento * 100, 1)
+
+        total_popular = (
+            comparativo.voto_popular_sim
+            + comparativo.voto_popular_nao
+            + comparativo.voto_popular_abstencao
+        )
+        pct_sim = round(comparativo.voto_popular_sim / total_popular * 100, 1) if total_popular > 0 else 0.0
+
+        result = {
+            "proposicao_id": proposicao_id,
+            "tipo": proposicao.tipo if proposicao else "?",
+            "numero": proposicao.numero if proposicao else 0,
+            "ano": proposicao.ano if proposicao else 0,
+            "ementa": proposicao.ementa if proposicao else "",
+            "voto_popular": {
+                "sim": comparativo.voto_popular_sim,
+                "nao": comparativo.voto_popular_nao,
+                "abstencao": comparativo.voto_popular_abstencao,
+                "total": total_popular,
+                "percentual_sim": pct_sim,
+            },
+            "resultado_camara": comparativo.resultado_camara,
+            "votos_camara": {
+                "sim": comparativo.votos_camara_sim,
+                "nao": comparativo.votos_camara_nao,
+            },
+            "alinhamento": alinhamento_pct,
+            "resumo_ia": comparativo.resumo_ia or "",
+            "data_geracao": str(comparativo.data_geracao),
+        }
+        return result
