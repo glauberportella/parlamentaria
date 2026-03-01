@@ -320,6 +320,7 @@ export default function ComoFuncionaPage() {
               className="inline-flex items-center gap-2 px-8 py-4 border-2 border-white/50 text-white text-lg font-semibold rounded-full hover:bg-white/10 transition-colors"
             >
               💬 Testar no Telegram
+              <span className="text-xs font-normal opacity-75 ml-1">(em breve)</span>
             </Link>
           </div>
         </div>

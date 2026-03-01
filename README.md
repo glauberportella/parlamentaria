@@ -7,6 +7,7 @@
 <h3 align="center"><em>Seu Parlamentar de IA — conectando eleitores e parlamentares<br>através de conversa, transparência e voto popular</em></h3>
 
 <p align="center">
+  <a href="https://parlamentaria.app">🌐 Site</a> •
   <a href="#-o-que-é">O que é</a> •
   <a href="#-para-quem">Para quem</a> •
   <a href="#-como-funciona">Como funciona</a> •
@@ -22,6 +23,7 @@
   <img src="https://img.shields.io/badge/FastAPI-0.135+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Google_ADK-Agent_Framework-4285f4?style=flat-square&logo=google&logoColor=white" alt="Google ADK" />
   <img src="https://img.shields.io/badge/Telegram-Bot-26a5e4?style=flat-square&logo=telegram&logoColor=white" alt="Telegram" />
+  <a href="https://parlamentaria.app"><img src="https://img.shields.io/badge/Site-parlamentaria.app-009c3b?style=flat-square&logo=google-chrome&logoColor=white" alt="Site" /></a>
 </p>
 
 ---

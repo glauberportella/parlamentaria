@@ -44,6 +44,7 @@ export function Header() {
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-green text-white text-sm font-semibold rounded-full hover:bg-brand-green-dark transition-colors shadow-sm"
             >
               💬 Começar no Telegram
+              <span className="text-[10px] font-normal opacity-75 ml-1">(em breve)</span>
             </Link>
           </nav>
 
@@ -79,6 +80,7 @@ export function Header() {
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-brand-green text-white font-semibold rounded-full hover:bg-brand-green-dark transition-colors mt-2"
             >
               💬 Começar no Telegram
+              <span className="text-[10px] font-normal opacity-75 ml-1">(em breve)</span>
             </Link>
           </nav>
         </div>

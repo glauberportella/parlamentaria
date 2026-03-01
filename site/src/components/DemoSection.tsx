@@ -22,7 +22,7 @@ export function DemoSection() {
               <span className="gradient-text">Parlamentaria</span>
             </h2>
             <p className="text-lg text-neutral-600 leading-relaxed mb-6">
-              Abra o Telegram, encontre o bot e comece a conversar. Sem
+              Em breve no Telegram: encontre o bot e comece a conversar. Sem
               formulários, sem instalação — só você e a democracia.
             </p>
             <ul className="space-y-4">

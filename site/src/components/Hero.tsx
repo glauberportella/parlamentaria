@@ -68,6 +68,7 @@ export function Hero() {
               className="inline-flex items-center gap-2 px-8 py-4 bg-brand-green text-white text-lg font-bold rounded-full hover:bg-brand-green-dark transition-all shadow-lg hover:shadow-xl hover:scale-105"
             >
               💬 Conversar no Telegram
+              <span className="text-xs font-normal opacity-75">(em breve)</span>
               <ArrowRight size={20} />
             </Link>
             <Link

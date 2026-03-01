@@ -31,6 +31,7 @@ export function CTAFinal() {
               className="inline-flex items-center gap-2 px-8 py-4 bg-brand-green text-white text-lg font-bold rounded-full hover:bg-brand-green-dark transition-all shadow-lg hover:shadow-xl hover:scale-105"
             >
               💬 Começar agora no Telegram
+              <span className="text-xs font-normal opacity-75 ml-1">(em breve)</span>
             </Link>
             <Link
               href="https://github.com/glauberportella/parlamentaria"
