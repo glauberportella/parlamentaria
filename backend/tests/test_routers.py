@@ -1,7 +1,11 @@
 """Tests for FastAPI routers (health, admin, webhooks)."""
 
 import pytest
+from unittest.mock import AsyncMock, patch
+
 from httpx import AsyncClient
+
+from channels.base import IncomingMessage
 
 
 class TestHealthRouter:
@@ -18,8 +22,20 @@ class TestHealthRouter:
 class TestWebhookRouter:
     """Test webhook endpoints."""
 
-    async def test_telegram_webhook(self, client: AsyncClient):
-        """POST /webhook/telegram should accept a payload."""
+    @patch("channels.telegram.webhook._run_agent", new_callable=AsyncMock)
+    @patch("channels.telegram.webhook.get_adapter")
+    async def test_telegram_webhook(self, mock_get_adapter, mock_run_agent, client: AsyncClient):
+        """POST /webhook/telegram should accept a payload and process it."""
+        mock_adapter = AsyncMock()
+        mock_adapter.process_incoming.return_value = IncomingMessage(
+            chat_id="12345",
+            user_id="67890",
+            text="/start",
+            first_name="Test",
+            channel="telegram",
+        )
+        mock_get_adapter.return_value = mock_adapter
+
         resp = await client.post(
             "/webhook/telegram",
             json={"update_id": 1, "message": {"text": "/start"}},

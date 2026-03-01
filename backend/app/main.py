@@ -19,6 +19,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup and shutdown lifecycle."""
     setup_logging()
     logger.info("parlamentaria.startup", env=settings.app_env)
+
+    # Setup Telegram webhook if token is configured
+    if settings.telegram_bot_token and settings.telegram_webhook_url:
+        try:
+            from channels.telegram.bot import TelegramAdapter
+
+            adapter = TelegramAdapter()
+            success = await adapter.setup_webhook(settings.telegram_webhook_url)
+            if success:
+                logger.info(
+                    "telegram.webhook.configured",
+                    url=settings.telegram_webhook_url,
+                )
+            else:
+                logger.warning("telegram.webhook.setup_failed")
+        except Exception as e:
+            logger.error("telegram.webhook.setup_error", error=str(e))
+
     yield
     logger.info("parlamentaria.shutdown")
 
