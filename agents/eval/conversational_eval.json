@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Saudação inicial",
+    "initial_prompt": "Olá!",
+    "expected_response_contains": ["ajud", "Parlamentar"],
+    "expected_intent": "greeting",
+    "tags": ["conversacional", "saudacao"]
+  },
+  {
+    "name": "Cadastro de eleitor",
+    "initial_prompt": "Quero me cadastrar",
+    "expected_agent": "EleitorAgent",
+    "expected_intent": "cadastro",
+    "tags": ["conversacional", "cadastro"]
+  },
+  {
+    "name": "Pergunta sobre deputado",
+    "initial_prompt": "Quem é o deputado fulano de tal?",
+    "expected_agent": "DeputadoAgent",
+    "expected_intent": "busca_deputado",
+    "tags": ["conversacional", "deputado"]
+  },
+  {
+    "name": "Pergunta sobre pauta do dia",
+    "initial_prompt": "O que está na pauta do plenário esta semana?",
+    "expected_tool_calls": ["buscar_eventos_pauta"],
+    "expected_intent": "agenda_plenario",
+    "tags": ["conversacional", "eventos"]
+  },
+  {
+    "name": "Comparativo popular vs real",
+    "initial_prompt": "Como foi o resultado comparado com o voto popular da PL 999?",
+    "expected_agent": "PublicacaoAgent",
+    "expected_intent": "comparativo",
+    "tags": ["conversacional", "comparativo"]
+  },
+  {
+    "name": "Despesas de deputado",
+    "initial_prompt": "Quanto meu deputado gastou este mês?",
+    "expected_agent": "DeputadoAgent",
+    "expected_intent": "despesas",
+    "tags": ["conversacional", "transparencia"]
+  },
+  {
+    "name": "Atualizar temas de interesse",
+    "initial_prompt": "Quero receber notificações sobre saúde e educação",
+    "expected_agent": "EleitorAgent",
+    "expected_intent": "temas_interesse",
+    "tags": ["conversacional", "notificacoes"]
+  },
+  {
+    "name": "Pergunta fora de escopo",
+    "initial_prompt": "Qual a receita de bolo de chocolate?",
+    "expected_response_contains": ["legislativ", "Câmara", "proposiç"],
+    "expected_intent": "out_of_scope",
+    "tags": ["conversacional", "escopo"]
+  }
+]

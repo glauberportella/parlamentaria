@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Votar SIM em proposição",
+    "initial_prompt": "Quero votar SIM na proposição 1234",
+    "expected_tool_calls": ["registrar_voto"],
+    "expected_intent": "votar",
+    "tags": ["votacao", "registrar"]
+  },
+  {
+    "name": "Ver resultado de votação popular",
+    "initial_prompt": "Qual o resultado da votação popular sobre a PL 5678?",
+    "expected_tool_calls": ["obter_resultado_votacao"],
+    "expected_intent": "resultado_votacao",
+    "tags": ["votacao", "resultado"]
+  },
+  {
+    "name": "Consultar próprio voto",
+    "initial_prompt": "Como eu votei na PL 1234?",
+    "expected_tool_calls": ["consultar_meu_voto"],
+    "expected_intent": "meu_voto",
+    "tags": ["votacao", "historico"]
+  },
+  {
+    "name": "Histórico de votos do eleitor",
+    "initial_prompt": "Quero ver meu histórico de votação",
+    "expected_tool_calls": ["historico_votos_eleitor"],
+    "expected_intent": "historico_votos",
+    "tags": ["votacao", "historico"]
+  },
+  {
+    "name": "Votações recentes na Câmara",
+    "initial_prompt": "Quais votações aconteceram recentemente na Câmara?",
+    "expected_tool_calls": ["buscar_votacoes_recentes"],
+    "expected_intent": "votacoes_camara",
+    "tags": ["votacao", "camara"]
+  }
+]

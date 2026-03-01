@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Buscar proposição sobre saúde",
+    "initial_prompt": "Quais são as proposições sobre saúde em tramitação?",
+    "expected_tool_calls": ["buscar_proposicoes"],
+    "expected_intent": "search_proposicao",
+    "tags": ["proposicao", "busca", "tema"]
+  },
+  {
+    "name": "Detalhes de PL específica",
+    "initial_prompt": "Me fale sobre a PL 1234/2024",
+    "expected_tool_calls": ["obter_detalhes_proposicao"],
+    "expected_intent": "detail_proposicao",
+    "tags": ["proposicao", "detalhes"]
+  },
+  {
+    "name": "Análise IA de proposição",
+    "initial_prompt": "Qual a análise da proposição 5678?",
+    "expected_tool_calls": ["obter_analise_ia"],
+    "expected_intent": "analise_proposicao",
+    "tags": ["proposicao", "analise"]
+  },
+  {
+    "name": "Tramitação de proposição",
+    "initial_prompt": "Como está a tramitação da PEC 321/2023?",
+    "expected_tool_calls": ["listar_tramitacoes_proposicao"],
+    "expected_intent": "tramitacao",
+    "tags": ["proposicao", "tramitacao"]
+  },
+  {
+    "name": "Listar PECs recentes",
+    "initial_prompt": "Quais PECs foram apresentadas em 2024?",
+    "expected_tool_calls": ["buscar_proposicoes"],
+    "expected_intent": "search_proposicao_tipo",
+    "tags": ["proposicao", "busca", "tipo"]
+  }
+]
