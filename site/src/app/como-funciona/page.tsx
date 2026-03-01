@@ -314,7 +314,7 @@ export default function ComoFuncionaPage() {
               Ver no GitHub
             </Link>
             <Link
-              href="https://t.me/Parlamentaria"
+              href="https://t.me/parlamentariasocial_bot"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-8 py-4 border-2 border-white/50 text-white text-lg font-semibold rounded-full hover:bg-white/10 transition-colors"

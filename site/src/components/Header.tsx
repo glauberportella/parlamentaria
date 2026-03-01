@@ -38,7 +38,7 @@ export function Header() {
               </Link>
             ))}
             <Link
-              href="https://t.me/Parlamentaria"
+              href="https://t.me/parlamentariasocial_bot"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-green text-white text-sm font-semibold rounded-full hover:bg-brand-green-dark transition-colors shadow-sm"
@@ -74,7 +74,7 @@ export function Header() {
               </Link>
             ))}
             <Link
-              href="https://t.me/Parlamentaria"
+              href="https://t.me/parlamentariasocial_bot"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-brand-green text-white font-semibold rounded-full hover:bg-brand-green-dark transition-colors mt-2"

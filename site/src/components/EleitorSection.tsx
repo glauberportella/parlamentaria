@@ -117,7 +117,7 @@ export function EleitorSection() {
           className="text-center mt-16"
         >
           <a
-            href="https://t.me/Parlamentaria"
+            href="https://t.me/parlamentariasocial_bot"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-4 bg-brand-green text-white text-lg font-bold rounded-full hover:bg-brand-green-dark transition-all shadow-lg hover:shadow-xl hover:scale-105"
