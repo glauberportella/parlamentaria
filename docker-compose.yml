@@ -62,7 +62,7 @@ services:
 
   celery-beat:
     build: ./backend
-    command: celery -A app.tasks beat -l info
+    command: celery -A app.tasks beat -l info --schedule=/tmp/celerybeat-schedule
     env_file: .env
     environment:
       - REDIS_URL=redis://redis:6379/0
