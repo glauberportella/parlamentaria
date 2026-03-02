@@ -96,3 +96,54 @@ async def list_comparativos(
         "total": len(comparativos),
         "items": [ComparativoResponse.model_validate(c) for c in comparativos],
     }
+
+
+# ------------------------------------------------------------------
+# RAG / Embeddings Admin
+# ------------------------------------------------------------------
+
+
+@router.get("/rag/stats", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
+async def rag_stats(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get RAG index statistics."""
+    from app.services.rag_service import RAGService
+
+    service = RAGService(db)
+    return await service.get_index_stats()
+
+
+@router.post("/rag/reindex", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def rag_reindex(
+    request: Request,
+    proposicao_id: int | None = Query(None, description="Index single proposição, or all if omitted"),
+) -> dict:
+    """Trigger RAG re-indexing via Celery task."""
+    from app.tasks.generate_embeddings import generate_embeddings_task, reindex_all_embeddings_task
+
+    if proposicao_id is not None:
+        generate_embeddings_task.delay(proposicao_id=proposicao_id)
+        return {"status": "queued", "proposicao_id": proposicao_id}
+    else:
+        reindex_all_embeddings_task.delay()
+        return {"status": "queued", "message": "Full re-index triggered."}
+
+
+@router.post("/rag/search", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
+async def rag_search(
+    request: Request,
+    query: str = Query(..., min_length=3, description="Natural language search query"),
+    limit: int = Query(5, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Test semantic search (admin debugging tool)."""
+    from app.services.rag_service import RAGService
+
+    service = RAGService(db)
+    results = await service.search_proposicoes(query=query, limit=limit)
+    return {"query": query, "total": len(results), "results": results}

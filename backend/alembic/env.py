@@ -28,6 +28,7 @@ from app.domain.evento import Evento  # noqa: F401
 from app.domain.partido import Partido  # noqa: F401
 from app.domain.assinatura import AssinaturaRSS, AssinaturaWebhook  # noqa: F401
 from app.domain.comparativo import ComparativoVotacao  # noqa: F401
+from app.domain.document_chunk import DocumentChunk  # noqa: F401
 
 target_metadata = Base.metadata
 

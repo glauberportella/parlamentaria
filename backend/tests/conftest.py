@@ -33,6 +33,7 @@ from app.domain.evento import Evento
 from app.domain.partido import Partido
 from app.domain.assinatura import AssinaturaRSS, AssinaturaWebhook
 from app.domain.comparativo import ComparativoVotacao
+from app.domain.document_chunk import DocumentChunk  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +67,8 @@ def _column_reflect(inspector, table, column_info):
 
 def _adapt_columns_for_sqlite():
     """Monkey-patch PostgreSQL column types to SQLite-compatible types in metadata."""
+    from pgvector.sqlalchemy import Vector
+
     for table in Base.metadata.tables.values():
         for column in table.columns:
             if isinstance(column.type, ARRAY):
@@ -74,6 +77,9 @@ def _adapt_columns_for_sqlite():
                 column.type = JSON()
             elif isinstance(column.type, PG_UUID):
                 column.type = _UUIDString()
+            elif isinstance(column.type, Vector):
+                # pgvector Vector type → store as JSON text in SQLite
+                column.type = JSON()
 
 
 # ---------------------------------------------------------------------------

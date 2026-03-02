@@ -45,7 +45,7 @@
 | **Backend API**       | Python 3.12+ / FastAPI              | Async nativo, webhooks, tipagem forte, ecossistema IA     |
 | **Canal Primário**    | Telegram Bot API + python-telegram-bot | Gratuito, bots nativos, rich messages, grupos            |
 | **Canal Futuro**      | WhatsApp Business API               | Alcance massivo no Brasil, expansão planejada             |
-| **Banco de Dados**    | PostgreSQL 16+                      | Relacional robusto, JSONB para dados semi-estruturados    |
+| **Banco de Dados**    | PostgreSQL 16+ com pgvector          | Relacional robusto, JSONB + busca vetorial/semântica      |
 | **ORM**               | SQLAlchemy 2.0 (async)              | Mapeamento robusto, migrations com Alembic                |
 | **Cache**             | Redis                               | Cache de respostas da API, sessões ADK, filas              |
 | **Task Queue**        | Celery + Redis (broker)             | Jobs assíncronos: sync com API Câmara, notificações       |
@@ -55,6 +55,7 @@
 | **Containerização**   | Docker + Docker Compose             | Ambiente reproduzível dev/prod                            |
 | **CI/CD**             | GitHub Actions                      | Lint, test, build, deploy automatizado                    |
 | **Linting**           | Ruff                                | Padrão de código consistente (Python-only)                |
+| **RAG / Embeddings**  | pgvector + Google text-embedding-004 | Busca semântica sobre proposições sincronizadas           |
 
 ---
 
@@ -212,6 +213,7 @@ parlamentaria/
 │   │       ├── __init__.py
 │   │       ├── camara_tools.py       # Tools que consultam API da Câmara
 │   │       ├── db_tools.py           # Tools que acessam banco de dados
+│   │       ├── rag_tools.py          # Tools de busca semântica RAG (pgvector)
 │   │       ├── votacao_tools.py      # Tools de votação popular
 │   │       ├── notification_tools.py # Tools de notificação proativa
 │   │       └── publicacao_tools.py   # Tools de publicação e comparativo
@@ -255,7 +257,8 @@ parlamentaria/
 │   │   │   ├── eleitor.py
 │   │   │   ├── voto_popular.py
 │   │   │   ├── assinatura.py         # AssinaturaRSS + AssinaturaWebhook
-│   │   │   └── comparativo.py        # ComparativoVotacao
+│   │   │   ├── comparativo.py        # ComparativoVotacao
+│   │   │   └── document_chunk.py     # DocumentChunk (embeddings pgvector)
 │   │   │
 │   │   ├── schemas/                  # Pydantic DTOs (request/response)
 │   │   │   ├── __init__.py
@@ -275,7 +278,8 @@ parlamentaria/
 │   │   │   ├── eleitor_repo.py
 │   │   │   ├── voto_popular_repo.py
 │   │   │   ├── assinatura_repo.py   # Gestão de assinaturas RSS/Webhook
-│   │   │   └── comparativo_repo.py  # Persistência de comparativos
+│   │   │   ├── comparativo_repo.py  # Persistência de comparativos
+│   │   │   └── document_chunk_repo.py # Busca vetorial com pgvector
 │   │   │
 │   │   ├── services/                # Business Logic Layer
 │   │   │   ├── __init__.py
@@ -284,6 +288,8 @@ parlamentaria/
 │   │   │   ├── eleitor_service.py
 │   │   │   ├── analise_service.py   # Orquestra análise IA de proposições
 │   │   │   ├── sync_service.py      # Sincronização com API da Câmara
+│   │   │   ├── embedding_service.py  # Geração de embeddings (Google text-embedding-004)
+│   │   │   ├── rag_service.py        # Indexação e busca semântica RAG
 │   │   │   ├── publicacao_service.py # Publicação RSS + dispatch webhooks
 │   │   │   └── comparativo_service.py # Comparativo voto popular vs real
 │   │   │
@@ -306,7 +312,8 @@ parlamentaria/
 │   │   │   ├── sync_votacoes.py
 │   │   │   ├── notificar_eleitores.py
 │   │   │   ├── dispatch_webhooks.py  # Dispara webhooks de saída
-│   │   │   └── gerar_comparativos.py # Gera comparativos pop vs real
+│   │   │   ├── gerar_comparativos.py # Gera comparativos pop vs real
+│   │   │   └── generate_embeddings.py # Gera embeddings RAG (pós-sync e daily)
 │   │   │
 │   │   └── db/
 │   │       ├── __init__.py
@@ -563,7 +570,7 @@ Cada sub-agent é um `LlmAgent` especializado com suas próprias tools:
 
 | Sub-Agent            | Responsabilidade                           | Tools Principais                              |
 |----------------------|--------------------------------------------|-----------------------------------------------|
-| `ProposicaoAgent`    | Buscar, resumir, analisar proposições      | `buscar_proposicoes`, `obter_analise_ia`      |
+| `ProposicaoAgent`    | Buscar, resumir, analisar proposições      | `busca_semantica_proposicoes`, `buscar_proposicoes`, `obter_analise_ia` |
 | `VotacaoAgent`       | Coletar voto popular, mostrar resultados   | `registrar_voto`, `obter_resultado_votacao`   |
 | `DeputadoAgent`      | Perfil de deputados, votações, despesas    | `buscar_deputado`, `obter_despesas`           |
 | `EleitorAgent`       | Cadastro, preferências, verificação        | `cadastrar_eleitor`, `atualizar_preferencias` |
@@ -833,7 +840,54 @@ def calcular_alinhamento(voto_popular: dict, resultado_camara: str) -> float:
     return forca if alinhado else 1.0 - forca
 ```
 
-### 9.8 Módulo: Feedback ao Eleitor
+### 9.8 Módulo: RAG — Busca Semântica com pgvector (`rag_service`)
+
+O sistema usa **RAG (Retrieval-Augmented Generation)** para permitir buscas semânticas sobre proposições sincronizadas. Isso permite ao agente encontrar proposições relevantes usando linguagem natural do eleitor, sem depender de palavras-chave exatas.
+
+**Arquitetura RAG:**
+
+```
+Sync API Câmara → Proposição (DB) → Chunking → Embedding → pgvector (HNSW index)
+                                                                     ↓
+Eleitor pergunta → Embedding da query → Cosine similarity → Top-K results → Agente responde
+```
+
+**Componentes:**
+
+| Componente | Arquivo | Responsabilidade |
+|---|---|---|
+| **EmbeddingService** | `embedding_service.py` | Wrapper do Google `text-embedding-004` (768 dims) |
+| **RAGService** | `rag_service.py` | Indexação (chunking + embed + upsert) e busca semântica |
+| **DocumentChunkRepository** | `document_chunk_repo.py` | Queries pgvector com `cosine_distance` operator |
+| **DocumentChunk** | `document_chunk.py` | Modelo SQLAlchemy com coluna `Vector(768)` |
+| **rag_tools.py** | `agents/parlamentar/tools/rag_tools.py` | FunctionTools do agente: `busca_semantica_proposicoes`, `obter_estatisticas_rag` |
+| **generate_embeddings.py** | `tasks/generate_embeddings.py` | Celery tasks: embedding pós-sync + reindex diário (3 AM) |
+
+**Tipos de chunk** (`ChunkType`):
+- `ementa` — Texto da ementa da proposição
+- `resumo_ia` — Resumo em linguagem acessível gerado por IA
+- `analise_resumo_leigo` — Análise resumida para leigos
+- `analise_impacto` — Análise de impacto esperado
+- `analise_argumentos` — Argumentos a favor e contra
+- `tramitacao` — Última tramitação
+
+**Deduplicação**: SHA-256 do conteúdo (`content_hash`) evita re-embedding de conteúdo idêntico.
+
+**Pipeline de indexação**:
+1. Sync Celery task baixa proposições da API Câmara.
+2. Ao finalizar com sucesso, chama `generate_embeddings_task.delay()`.
+3. Task extrai chunks, calcula hash, gera embeddings apenas para conteúdo novo.
+4. Re-index completo agendado via Celery Beat às 3:00 AM diariamente.
+
+**Configuração** (variáveis de ambiente / `config.py`):
+- `EMBEDDING_MODEL` — Modelo de embeddings (padrão: `text-embedding-004`)
+- `EMBEDDING_DIMENSIONS` — Dimensões do vetor (padrão: `768`)
+- `RAG_SIMILARITY_THRESHOLD` — Threshold mínimo de similaridade (padrão: `0.3`)
+- `RAG_MAX_RESULTS` — Máximo de resultados por busca (padrão: `10`)
+
+**Índice pgvector**: HNSW com `vector_cosine_ops` (m=16, ef_construction=64) para ANN eficiente.
+
+### 9.9 Módulo: Feedback ao Eleitor
 
 - Quando comparativo é gerado, o sistema notifica proativamente os eleitores que votaram.
 - Mensagem via chat: "A PL 1234/2026 foi APROVADA pela Câmara. 73% dos eleitores queriam SIM. Alinhamento: 95%."
@@ -880,6 +934,11 @@ GET    /admin/comparativos                   # Lista comparativos pop vs real
 GET    /admin/assinaturas                    # Lista todas as assinaturas ativas
 GET    /admin/webhooks/log                   # Log de dispatches (sucesso/falha)
 
+# RAG — Busca Semântica (admin tools)
+GET    /admin/rag/stats                      # Estatísticas do índice vetorial
+POST   /admin/rag/reindex                    # Re-indexar embeddings (single ou full)
+POST   /admin/rag/search                     # Teste de busca semântica (debugging)
+
 # Health
 GET    /health                               # Health check simples
 GET    /health/detailed                      # Status de DB, Redis, API Câmara
@@ -924,6 +983,12 @@ RSS_TTL_MINUTES=15                   # TTL do cache RSS
 WEBHOOK_DISPATCH_TIMEOUT=10          # Timeout (segundos) para dispatch
 WEBHOOK_MAX_RETRIES=3                # Tentativas de reenvio
 WEBHOOK_CIRCUIT_BREAKER_THRESHOLD=5  # Falhas para desativar assinatura
+
+# RAG / Embeddings (pgvector)
+EMBEDDING_MODEL=text-embedding-004   # Modelo Google Embeddings
+EMBEDDING_DIMENSIONS=768             # Dimensões do vetor
+RAG_SIMILARITY_THRESHOLD=0.3         # Threshold mínimo cosine similarity
+RAG_MAX_RESULTS=10                   # Máximo de resultados por busca semântica
 
 # App
 APP_ENV=development                  # development | staging | production

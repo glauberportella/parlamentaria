@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     app_debug: bool = True
     log_level: str = "INFO"
 
+    # RAG / Embeddings
+    embedding_model: str = "text-embedding-004"
+    embedding_dimensions: int = 768
+    rag_similarity_threshold: float = 0.3
+    rag_max_results: int = 10
+
     @property
     def is_production(self) -> bool:
         """Check if running in production."""

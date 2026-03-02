@@ -15,6 +15,7 @@ celery_app = Celery(
         "app.tasks.notificar_eleitores",
         "app.tasks.dispatch_webhooks",
         "app.tasks.gerar_comparativos",
+        "app.tasks.generate_embeddings",
     ],
 )
 
@@ -45,6 +46,11 @@ celery_app.conf.beat_schedule = {
     "gerar-comparativos-every-30min": {
         "task": "app.tasks.gerar_comparativos.gerar_comparativos_task",
         "schedule": crontab(minute="*/30"),
+        "args": (),
+    },
+    "reindex-embeddings-daily": {
+        "task": "app.tasks.generate_embeddings.reindex_all_embeddings_task",
+        "schedule": crontab(hour=3, minute=0),  # Daily at 3 AM
         "args": (),
     },
 }

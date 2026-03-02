@@ -27,6 +27,9 @@ dependencies = [
     "python-multipart>=0.0.9",
     "google-adk>=1.0.0",
     "python-telegram-bot>=21.0",
+    "pgvector>=0.3.0",
+    "google-genai>=1.0.0",
+    "numpy>=1.26.0",
 ]
 
 [project.optional-dependencies]

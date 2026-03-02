@@ -37,4 +37,11 @@ def sync_proposicoes_task(self, ano: int | None = None, sigla_tipo: str | None =
         result = asyncio.run(_run())
 
     logger.info("task.sync_proposicoes.complete", **result)
+
+    # Chain: trigger embedding generation for newly synced propositions
+    if result.get("created", 0) > 0 or result.get("updated", 0) > 0:
+        from app.tasks.generate_embeddings import generate_embeddings_task
+        generate_embeddings_task.delay()
+        logger.info("task.sync_proposicoes.triggered_embeddings")
+
     return result

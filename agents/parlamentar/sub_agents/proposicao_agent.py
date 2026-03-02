@@ -18,6 +18,9 @@ from agents.parlamentar.tools.db_tools import (
     listar_proposicoes_local,
     obter_analise_ia,
 )
+from agents.parlamentar.tools.rag_tools import (
+    busca_semantica_proposicoes,
+)
 
 proposicao_agent = LlmAgent(
     name="ProposicaoAgent",
@@ -30,6 +33,7 @@ proposicao_agent = LlmAgent(
     model=settings.agent_model,
     instruction=PROPOSICAO_AGENT_INSTRUCTION,
     tools=[
+        busca_semantica_proposicoes,
         buscar_proposicoes,
         obter_detalhes_proposicao,
         listar_tramitacoes_proposicao,

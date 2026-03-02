@@ -123,7 +123,8 @@ Assinar o feed da Parlamentaria é uma demonstração concreta de que **a vontad
 | **Agentes de IA** | Google ADK (Agent Development Kit) | Framework multi-agent conversacional |
 | **Backend** | Python 3.11+ / FastAPI | API async, webhooks, orquestração |
 | **Mensageria** | Telegram Bot API | Canal primário de interação |
-| **Banco de Dados** | PostgreSQL 16 | Persistência relacional + JSONB |
+| **Banco de Dados** | PostgreSQL 16 + pgvector | Persistência relacional + busca vetorial/semântica |
+| **RAG / Embeddings** | pgvector + Google text-embedding-004 | Busca semântica sobre proposições sincronizadas |
 | **Cache / Filas** | Redis + Celery | Cache, sessões, jobs assíncronos |
 | **LLM** | Gemini (primário) via ADK | Análise e conversa — model-agnostic |
 | **Containers** | Docker + Docker Compose | Ambiente reproduzível |
@@ -244,7 +245,7 @@ A Parlamentaria é um projeto de **democracia participativa sobre democracia par
 
 ### Ideias para contribuições
 
-> As 8 fases do roadmap estão implementadas (591 testes, 94%+ de cobertura). As oportunidades abaixo são melhorias, expansões e refinamentos sobre a base existente.
+> As 8 fases do roadmap estão implementadas + RAG/pgvector (629 testes, 94%+ de cobertura). As oportunidades abaixo são melhorias, expansões e refinamentos sobre a base existente.
 
 | Área | O que fazer |
 |------|-------------|
@@ -258,6 +259,7 @@ A Parlamentaria é um projeto de **democracia participativa sobre democracia par
 | 📊 Monitoramento | Integração com Prometheus/Grafana, dashboards, alertas |
 | ♿ Acessibilidade | Suporte a mensagens de áudio, linguagem mais simples, inclusão digital |
 | 🌐 Internacionalização | Suporte a espanhol e inglês para comunidades de imigrantes |
+| 🔍 RAG / Busca Semântica | Refinar chunking, testar modelos de embedding alternativos, tuning de threshold |
 | ⚡ Performance | Otimizar queries SQL, cache Redis avançado, paginação assíncrona |
 | 🔐 Auditoria | Logs de auditoria, rastreabilidade de votos, compliance LGPD |
 
@@ -296,6 +298,7 @@ Nenhum dado sigiloso é acessado. Toda informação é pública e de livre acess
 - [x] **Fase 6** — Publicação: RSS Feed, webhooks de saída
 - [x] **Fase 7** — Comparativo: voto popular vs real, feedback ao eleitor
 - [x] **Fase 8** — Polimento: segurança, monitoring, deploy, WhatsApp
+- [x] **RAG** — Busca semântica: pgvector, embeddings Google text-embedding-004, chunking por tipo de conteúdo
 
 ---
 
