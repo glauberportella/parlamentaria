@@ -31,6 +31,10 @@ WORKDIR /app
 # Copy installed Python packages from builder stage
 COPY --from=builder /install /usr/local
 
+# Copy Alembic configuration and migrations
+COPY alembic.ini ./alembic.ini
+COPY alembic/ ./alembic/
+
 # Copy application code
 COPY app/ ./app/
 
