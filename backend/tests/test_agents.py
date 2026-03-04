@@ -749,9 +749,16 @@ class TestVotacaoTools:
 
     @pytest.mark.asyncio
     async def test_obter_resultado_votacao_success(self):
-        mock_resultado = {
-            "total": 100, "SIM": 73, "NAO": 21, "ABSTENCAO": 6,
-            "percentual_sim": 73.0, "percentual_nao": 21.0, "percentual_abstencao": 6.0,
+        mock_resultado_completo = {
+            "proposicao_id": 1234,
+            "oficial": {
+                "total": 100, "SIM": 73, "NAO": 21, "ABSTENCAO": 6,
+                "percentual_sim": 73.0, "percentual_nao": 21.0, "percentual_abstencao": 6.0,
+            },
+            "consultivo": {
+                "total": 120, "SIM": 83, "NAO": 28, "ABSTENCAO": 9,
+                "percentual_sim": 69.2, "percentual_nao": 23.3, "percentual_abstencao": 7.5,
+            },
         }
 
         mock_sf = MagicMock()
@@ -762,7 +769,7 @@ class TestVotacaoTools:
         with patch("agents.parlamentar.tools.votacao_tools.async_session_factory", mock_sf), \
              patch("agents.parlamentar.tools.votacao_tools.VotoPopularService") as MockService:
             mock_svc = AsyncMock()
-            mock_svc.obter_resultado = AsyncMock(return_value=mock_resultado)
+            mock_svc.obter_resultado_completo = AsyncMock(return_value=mock_resultado_completo)
             MockService.return_value = mock_svc
 
             from agents.parlamentar.tools.votacao_tools import obter_resultado_votacao
@@ -770,8 +777,9 @@ class TestVotacaoTools:
             result = await obter_resultado_votacao(1234)
 
             assert result["status"] == "success"
-            assert result["resultado"]["total_votos"] == 100
-            assert result["resultado"]["percentual_sim"] == 73.0
+            assert result["resultado_oficial"]["total_votos"] == 100
+            assert result["resultado_oficial"]["percentual_sim"] == 73.0
+            assert result["resultado_consultivo"]["total_votos"] == 120
 
     @pytest.mark.asyncio
     async def test_consultar_meu_voto_success(self):

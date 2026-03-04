@@ -162,13 +162,20 @@ def sample_proposicao_data() -> dict:
 
 @pytest.fixture
 def sample_eleitor_data() -> dict:
-    """Return a dict of valid Eleitor fields."""
+    """Return a dict of valid Eleitor fields.
+
+    The eleitor is created as eligible by default (cidadão brasileiro,
+    16+ years old, verified) so that votes are classified as OFICIAL.
+    """
     return {
         "nome": "Maria Silva",
         "email": "maria@example.com",
         "uf": "SP",
         "channel": "telegram",
         "chat_id": "12345678",
+        "cidadao_brasileiro": True,
+        "data_nascimento": date(1990, 6, 15),
+        "verificado": True,
     }
 
 

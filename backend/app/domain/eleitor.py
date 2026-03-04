@@ -1,9 +1,9 @@
 """Eleitor domain model — registered voter in the platform."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import String, Boolean, DateTime, func
+from sqlalchemy import String, Boolean, Date, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,7 +11,13 @@ from app.db.base import Base
 
 
 class Eleitor(Base):
-    """A registered voter on the Parlamentaria platform."""
+    """A registered voter on the Parlamentaria platform.
+
+    Voters can be either *eligible* (cidadão brasileiro, 16+ anos, verificado)
+    or *non-eligible*.  Non-eligible users may still express opinions, but
+    their votes are classified as ``OPINIAO`` and do not count in the
+    official consolidated results sent to parliamentarians.
+    """
 
     __tablename__ = "eleitores"
 
@@ -29,6 +35,15 @@ class Eleitor(Base):
     )
     verificado: Mapped[bool] = mapped_column(Boolean, default=False)
     temas_interesse: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+
+    # --- Eligibility fields (Fase limite-eleitor) ---
+    data_nascimento: Mapped[date | None] = mapped_column(
+        Date, nullable=True, doc="Data de nascimento para cálculo de idade (16+)"
+    )
+    cidadao_brasileiro: Mapped[bool] = mapped_column(
+        Boolean, default=False, doc="Auto-declaração de cidadania brasileira"
+    )
+
     data_cadastro: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -39,8 +54,37 @@ class Eleitor(Base):
     # Relationships
     votos: Mapped[list["VotoPopular"]] = relationship(back_populates="eleitor", lazy="selectin")
 
+    # --- Computed properties ---
+
+    @property
+    def idade(self) -> int | None:
+        """Calculate age in years from data_nascimento."""
+        if self.data_nascimento is None:
+            return None
+        today = date.today()
+        born = self.data_nascimento
+        return today.year - born.year - (
+            (today.month, today.day) < (born.month, born.day)
+        )
+
+    @property
+    def elegivel(self) -> bool:
+        """Whether this voter is eligible for official popular votes.
+
+        Criteria (CF/88 Art. 14): Brazilian citizen, 16+ years old,
+        and account verified.
+        """
+        if not self.cidadao_brasileiro:
+            return False
+        if not self.verificado:
+            return False
+        idade = self.idade
+        if idade is None or idade < 16:
+            return False
+        return True
+
     def __repr__(self) -> str:
-        return f"<Eleitor {self.nome} ({self.uf})>"
+        return f"<Eleitor {self.nome} ({self.uf}) elegivel={self.elegivel}>"
 
 
 from app.domain.voto_popular import VotoPopular  # noqa: E402, F401

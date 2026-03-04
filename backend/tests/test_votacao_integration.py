@@ -308,12 +308,14 @@ class TestAdminResultadoEndpoint:
         await db_session.refresh(prop)
         await db_session.refresh(eleitor)
 
-        # Register a vote
-        from app.domain.voto_popular import VotoPopular
+        # Register a vote — eleitor is eligible (conftest fixture), so
+        # the vote needs tipo_voto=OFICIAL for official counts.
+        from app.domain.voto_popular import VotoPopular, TipoVoto
         voto = VotoPopular(
             eleitor_id=eleitor.id,
             proposicao_id=prop.id,
             voto=VotoEnum.SIM,
+            tipo_voto=TipoVoto.OFICIAL,
         )
         db_session.add(voto)
         await db_session.flush()
@@ -327,9 +329,12 @@ class TestAdminResultadoEndpoint:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 1
-        assert data["SIM"] == 1
-        assert data["percentual_sim"] == 100.0
+        # Admin endpoint now returns dual result: oficial + consultivo
+        assert data["proposicao_id"] == prop.id
+        assert data["oficial"]["total"] == 1
+        assert data["oficial"]["SIM"] == 1
+        assert data["oficial"]["percentual_sim"] == 100.0
+        assert data["consultivo"]["total"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -402,23 +407,27 @@ class TestVotacaoToolsIntegration:
         from unittest.mock import patch, AsyncMock
         from agents.parlamentar.tools.votacao_tools import obter_resultado_votacao
 
-        # Create voter and vote
+        # Create eligible voter and vote
         eleitor = Eleitor(
             nome="Result Voter",
             email="result@example.com",
             uf="SP",
             channel="telegram",
             chat_id="result_chat_001",
+            cidadao_brasileiro=True,
+            data_nascimento=date(1990, 1, 1),
+            verificado=True,
         )
         db_session.add(eleitor)
         await db_session.flush()
         await db_session.refresh(eleitor)
 
-        from app.domain.voto_popular import VotoPopular
+        from app.domain.voto_popular import VotoPopular, TipoVoto
         voto = VotoPopular(
             eleitor_id=eleitor.id,
             proposicao_id=proposicao.id,
             voto=VotoEnum.NAO,
+            tipo_voto=TipoVoto.OFICIAL,
         )
         db_session.add(voto)
         await db_session.flush()
@@ -434,8 +443,9 @@ class TestVotacaoToolsIntegration:
             result = await obter_resultado_votacao(proposicao_id=proposicao.id)
 
         assert result["status"] == "success"
-        assert result["resultado"]["total_votos"] == 1
-        assert result["resultado"]["nao"] == 1
+        assert result["resultado_oficial"]["total_votos"] == 1
+        assert result["resultado_oficial"]["nao"] == 1
+        assert result["resultado_consultivo"]["total_votos"] == 1
 
     async def test_consultar_meu_voto_tool(self, db_session, proposicao):
         """Tool returns the voter's existing vote."""

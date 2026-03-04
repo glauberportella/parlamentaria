@@ -163,6 +163,7 @@ class TestVotoPopularSchema:
             total_votos=160,
             percentual_sim=62.5,
             percentual_nao=31.25,
+            percentual_abstencao=6.25,
         )
         assert dto.total_votos == 160
 

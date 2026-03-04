@@ -6,7 +6,7 @@ from typing import Sequence
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.voto_popular import VotoPopular, VotoEnum
+from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
 from app.repositories.base import BaseRepository
 
 
@@ -35,11 +35,17 @@ class VotoPopularRepository(BaseRepository[VotoPopular]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def count_by_proposicao(self, proposicao_id: int) -> dict[str, int]:
+    async def count_by_proposicao(
+        self,
+        proposicao_id: int,
+        tipo_voto: TipoVoto | None = None,
+    ) -> dict[str, int]:
         """Count votes by type for a proposition.
 
         Args:
             proposicao_id: Proposition ID.
+            tipo_voto: If provided, count only votes of this classification.
+                       None means count ALL votes (OFICIAL + OPINIAO).
 
         Returns:
             Dict with SIM, NAO, ABSTENCAO counts and total.
@@ -47,8 +53,11 @@ class VotoPopularRepository(BaseRepository[VotoPopular]):
         stmt = (
             select(VotoPopular.voto, func.count(VotoPopular.id))
             .where(VotoPopular.proposicao_id == proposicao_id)
-            .group_by(VotoPopular.voto)
         )
+        if tipo_voto is not None:
+            stmt = stmt.where(VotoPopular.tipo_voto == tipo_voto)
+        stmt = stmt.group_by(VotoPopular.voto)
+
         result = await self.session.execute(stmt)
         counts = {row[0].value: row[1] for row in result.all()}
         return {
@@ -57,6 +66,20 @@ class VotoPopularRepository(BaseRepository[VotoPopular]):
             "ABSTENCAO": counts.get("ABSTENCAO", 0),
             "total": sum(counts.values()),
         }
+
+    async def count_oficiais_by_proposicao(self, proposicao_id: int) -> dict[str, int]:
+        """Count only OFICIAL votes for a proposition.
+
+        Official votes are from eligible Brazilian citizens (16+, verified).
+        This is the result sent to parliamentarians.
+
+        Args:
+            proposicao_id: Proposition ID.
+
+        Returns:
+            Dict with SIM, NAO, ABSTENCAO counts and total.
+        """
+        return await self.count_by_proposicao(proposicao_id, tipo_voto=TipoVoto.OFICIAL)
 
     async def list_by_eleitor(
         self, eleitor_id: uuid.UUID, offset: int = 0, limit: int = 50

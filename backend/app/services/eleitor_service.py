@@ -1,6 +1,7 @@
 """Service for Eleitor (voter) business logic."""
 
 import uuid
+from datetime import date
 from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,13 @@ from app.repositories.eleitor import EleitorRepository
 from app.schemas.eleitor import EleitorCreate, EleitorUpdate
 
 logger = get_logger(__name__)
+
+# Valid Brazilian UF codes
+UFS_VALIDAS = frozenset([
+    "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN",
+    "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+])
 
 
 class EleitorService:
@@ -158,3 +166,87 @@ class EleitorService:
     async def count(self) -> int:
         """Return total number of registered voters."""
         return await self.repo.count()
+
+    # ------------------------------------------------------------------
+    # Eligibility (elegibilidade) — Fase limite-eleitor
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def verificar_elegibilidade(eleitor: Eleitor) -> dict[str, bool | str | None]:
+        """Check if a voter meets eligibility criteria for official votes.
+
+        Criteria (CF/88, Art. 14):
+        - Brazilian citizen (self-declared).
+        - 16 years of age or older.
+        - Account verified.
+
+        Args:
+            eleitor: Eleitor instance to check.
+
+        Returns:
+            Dict with ``elegivel`` bool and ``motivo`` explanation if not eligible.
+        """
+        if not eleitor.cidadao_brasileiro:
+            return {
+                "elegivel": False,
+                "motivo": "Apenas cidadãos brasileiros podem emitir voto oficial. "
+                          "Sua opinião será registrada como voto consultivo.",
+            }
+
+        if eleitor.data_nascimento is None:
+            return {
+                "elegivel": False,
+                "motivo": "Informe sua data de nascimento para verificar elegibilidade.",
+            }
+
+        idade = eleitor.idade
+        if idade is not None and idade < 16:
+            return {
+                "elegivel": False,
+                "motivo": f"Você tem {idade} anos. O voto é permitido a partir de 16 anos (CF/88 Art. 14). "
+                          "Sua opinião será registrada como voto consultivo.",
+            }
+
+        if not eleitor.verificado:
+            return {
+                "elegivel": False,
+                "motivo": "Complete a verificação do seu cadastro para emitir voto oficial.",
+            }
+
+        return {"elegivel": True, "motivo": None}
+
+    async def atualizar_cidadania(
+        self,
+        eleitor_id: uuid.UUID,
+        cidadao_brasileiro: bool,
+        data_nascimento: date | None = None,
+    ) -> Eleitor:
+        """Update citizenship and birth date of a voter.
+
+        After updating, re-evaluates eligibility.
+
+        Args:
+            eleitor_id: Voter UUID.
+            cidadao_brasileiro: Self-declaration of Brazilian citizenship.
+            data_nascimento: Date of birth (YYYY-MM-DD).
+
+        Returns:
+            Updated Eleitor.
+
+        Raises:
+            NotFoundException: If voter not found.
+        """
+        eleitor = await self.repo.get_by_id_or_raise(eleitor_id)
+
+        update_data: dict = {"cidadao_brasileiro": cidadao_brasileiro}
+        if data_nascimento is not None:
+            update_data["data_nascimento"] = data_nascimento
+
+        result = await self.repo.update(eleitor, update_data)
+        logger.info(
+            "eleitor.cidadania_atualizada",
+            id=str(result.id),
+            cidadao_brasileiro=cidadao_brasileiro,
+            elegivel=result.elegivel,
+        )
+        return result

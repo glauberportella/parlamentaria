@@ -140,7 +140,7 @@ async def rss_votos(
             if not any(t in prop_temas_lower for t in active_temas):
                 continue
 
-        resultado = await voto_service.obter_resultado(prop_id)
+        resultado = await voto_service.obter_resultado_oficial(prop_id)
         if resultado and resultado["total"] > 0:
             xml += _build_vote_item(proposicao, resultado)
 

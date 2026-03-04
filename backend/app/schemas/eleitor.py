@@ -1,7 +1,7 @@
 """Pydantic DTOs for Eleitor."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -20,6 +20,8 @@ class EleitorCreate(EleitorBase):
     chat_id: str | None = None
     channel: str = "telegram"
     temas_interesse: list[str] | None = None
+    data_nascimento: date | None = None
+    cidadao_brasileiro: bool = False
 
 
 class EleitorUpdate(BaseModel):
@@ -31,6 +33,8 @@ class EleitorUpdate(BaseModel):
     channel: str | None = None
     verificado: bool | None = None
     temas_interesse: list[str] | None = None
+    data_nascimento: date | None = None
+    cidadao_brasileiro: bool | None = None
 
 
 class EleitorResponse(EleitorBase):
@@ -41,6 +45,9 @@ class EleitorResponse(EleitorBase):
     channel: str
     verificado: bool
     temas_interesse: list[str] | None = None
+    data_nascimento: date | None = None
+    cidadao_brasileiro: bool = False
+    elegivel: bool = False
     data_cadastro: datetime
 
     model_config = {"from_attributes": True}

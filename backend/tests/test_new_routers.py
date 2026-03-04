@@ -9,7 +9,7 @@ from httpx import AsyncClient
 from app.config import settings
 from app.domain.proposicao import Proposicao
 from app.domain.eleitor import Eleitor
-from app.domain.voto_popular import VotoPopular, VotoEnum
+from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
 from app.domain.assinatura import AssinaturaRSS
 
 
@@ -50,6 +50,9 @@ class TestRSSRouter:
         eleitor = Eleitor(
             nome="Maria", email="maria@test.com", uf="SP",
             chat_id="t123", channel="telegram",
+            cidadao_brasileiro=True,
+            data_nascimento=date(1990, 1, 1),
+            verificado=True,
         )
         db_session.add(eleitor)
         await db_session.flush()
@@ -57,6 +60,7 @@ class TestRSSRouter:
 
         voto = VotoPopular(
             eleitor_id=eleitor.id, proposicao_id=12345, voto=VotoEnum.SIM,
+            tipo_voto=TipoVoto.OFICIAL,
         )
         db_session.add(voto)
         await db_session.flush()
@@ -261,7 +265,10 @@ class TestAdminRouterUpdated:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] == 0
+        assert data["proposicao_id"] == 66666
+        assert "oficial" in data
+        assert "consultivo" in data
+        assert data["oficial"]["total"] == 0
 
     async def test_admin_trigger_analise(self, client: AsyncClient):
         resp = await client.post(

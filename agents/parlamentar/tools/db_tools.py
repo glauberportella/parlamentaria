@@ -171,9 +171,13 @@ async def consultar_perfil_eleitor(chat_id: str) -> dict:
                     "nome": eleitor.nome,
                     "uf": eleitor.uf,
                     "verificado": eleitor.verificado,
+                    "cidadao_brasileiro": eleitor.cidadao_brasileiro,
+                    "data_nascimento": str(eleitor.data_nascimento) if eleitor.data_nascimento else None,
+                    "elegivel": eleitor.elegivel,
                     "temas_interesse": eleitor.temas_interesse or [],
                     "channel": eleitor.channel,
                 },
+                "elegibilidade": EleitorService.verificar_elegibilidade(eleitor),
             }
     except Exception as e:
         return {"status": "error", "error": str(e)}
@@ -184,21 +188,29 @@ async def cadastrar_eleitor(
     nome: str,
     uf: str,
     channel: str = "telegram",
+    cidadao_brasileiro: bool = False,
+    data_nascimento: str = "",
 ) -> dict:
     """Cadastra ou atualiza dados de um eleitor.
 
     Use quando o eleitor fornecer nome e UF durante a conversa.
+    Pergunte também se é cidadão brasileiro e a data de nascimento
+    para determinar se o voto será oficial ou consultivo.
 
     Args:
         chat_id: ID do chat no mensageiro.
         nome: Nome completo do eleitor.
         uf: Sigla do estado (2 letras, ex: 'SP', 'RJ').
         channel: Canal de mensageria ('telegram' ou 'whatsapp').
+        cidadao_brasileiro: Se o eleitor é cidadão brasileiro.
+        data_nascimento: Data de nascimento no formato 'AAAA-MM-DD' (ex: '1990-05-15').
 
     Returns:
-        Dict com status e dados do eleitor cadastrado/atualizado.
+        Dict com status, dados do eleitor e informação de elegibilidade.
     """
     try:
+        from datetime import date as _date
+
         ufs_validas = [
             "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA",
             "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN",
@@ -211,16 +223,35 @@ async def cadastrar_eleitor(
                 "error": f"UF inválida: '{uf}'. Use a sigla do estado (ex: SP, RJ, MG).",
             }
 
+        # Parse birth date if provided
+        parsed_nascimento = None
+        if data_nascimento and data_nascimento.strip():
+            try:
+                parsed_nascimento = _date.fromisoformat(data_nascimento.strip())
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"Data de nascimento inválida: '{data_nascimento}'. Use o formato AAAA-MM-DD.",
+                }
+
         async with async_session_factory() as session:
             service = EleitorService(session)
             eleitor, created = await service.get_or_create_by_chat_id(chat_id, channel)
 
             # Update with provided data
-            update_data = EleitorUpdate(nome=nome.strip(), uf=uf_upper)
+            update_fields: dict = {"nome": nome.strip(), "uf": uf_upper}
+            if cidadao_brasileiro:
+                update_fields["cidadao_brasileiro"] = True
+            if parsed_nascimento is not None:
+                update_fields["data_nascimento"] = parsed_nascimento
+
+            update_data = EleitorUpdate(**update_fields)
             updated = await service.update_profile(eleitor.id, update_data)
             await session.commit()
 
-            return {
+            elegibilidade = EleitorService.verificar_elegibilidade(updated)
+
+            result = {
                 "status": "success",
                 "message": "Cadastro realizado!" if created else "Dados atualizados!",
                 "eleitor": {
@@ -228,8 +259,19 @@ async def cadastrar_eleitor(
                     "nome": updated.nome,
                     "uf": updated.uf,
                     "verificado": updated.verificado,
+                    "cidadao_brasileiro": updated.cidadao_brasileiro,
+                    "elegivel": updated.elegivel,
                 },
+                "elegibilidade": elegibilidade,
             }
+
+            if not updated.elegivel:
+                result["aviso"] = (
+                    "Seus votos serão registrados como OPINIÃO CONSULTIVA. "
+                    + (elegibilidade.get("motivo") or "")
+                )
+
+            return result
     except Exception as e:
         return {"status": "error", "error": str(e)}
 

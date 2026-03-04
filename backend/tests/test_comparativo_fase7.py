@@ -15,7 +15,7 @@ from app.domain.comparativo import ComparativoVotacao
 from app.domain.proposicao import Proposicao
 from app.domain.votacao import Votacao
 from app.domain.eleitor import Eleitor
-from app.domain.voto_popular import VotoPopular, VotoEnum
+from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +54,9 @@ async def _seed_full_cycle(session: AsyncSession) -> dict:
         uf="SP",
         channel="telegram",
         chat_id="999888",
+        cidadao_brasileiro=True,
+        data_nascimento=date(1990, 3, 15),
+        verificado=True,
     )
     session.add(eleitor)
     await session.flush()
@@ -62,6 +65,7 @@ async def _seed_full_cycle(session: AsyncSession) -> dict:
         eleitor_id=eleitor.id,
         proposicao_id=1001,
         voto=VotoEnum.SIM,
+        tipo_voto=TipoVoto.OFICIAL,
         data_voto=datetime(2026, 2, 15, tzinfo=timezone.utc),
     )
     voto2_eleitor = Eleitor(
@@ -70,6 +74,9 @@ async def _seed_full_cycle(session: AsyncSession) -> dict:
         uf="RJ",
         channel="telegram",
         chat_id="777666",
+        cidadao_brasileiro=True,
+        data_nascimento=date(1992, 7, 20),
+        verificado=True,
     )
     session.add(voto2_eleitor)
     await session.flush()
@@ -78,6 +85,7 @@ async def _seed_full_cycle(session: AsyncSession) -> dict:
         eleitor_id=voto2_eleitor.id,
         proposicao_id=1001,
         voto=VotoEnum.NAO,
+        tipo_voto=TipoVoto.OFICIAL,
         data_voto=datetime(2026, 2, 16, tzinfo=timezone.utc),
     )
     session.add_all([voto1, voto2])

@@ -74,8 +74,8 @@ class ComparativoService:
         """
         await self.proposicao_repo.get_by_id_or_raise(proposicao_id)
 
-        # Get popular vote counts
-        counts = await self.voto_popular_repo.count_by_proposicao(proposicao_id)
+        # Get OFICIAL popular vote counts only (eligible Brazilian citizens)
+        counts = await self.voto_popular_repo.count_oficiais_by_proposicao(proposicao_id)
 
         alinhamento = calcular_alinhamento(counts, resultado_camara)
 
