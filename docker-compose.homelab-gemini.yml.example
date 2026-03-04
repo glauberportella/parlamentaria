@@ -1,0 +1,66 @@
+# docker-compose.homelab-gemini.yml
+# Override para deploy homelab SEM LLM local — usa Gemini API.
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.homelab-gemini.yml up -d --build
+#
+# Muito mais simples: sem Ollama, sem GPU, sem download de modelo.
+
+services:
+  backend:
+    environment:
+      - AGENT_MODEL=gemini-2.5-flash
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    command: >
+      python -m gunicorn app.main:app
+      -w 3
+      -k uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:8000
+      --access-logfile -
+      --error-logfile -
+    restart: unless-stopped
+
+  celery-worker:
+    environment:
+      - AGENT_MODEL=gemini-2.5-flash
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    command: celery -A app.tasks worker -l info --concurrency=3
+    restart: unless-stopped
+
+  celery-beat:
+    restart: unless-stopped
+
+  db:
+    # PostgreSQL com menos RAM (VM menor)
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=256MB
+      -c work_mem=32MB
+      -c max_connections=50
+      -c wal_buffers=16MB
+      -c checkpoint_completion_target=0.9
+      -c random_page_cost=1.1
+    environment:
+      POSTGRES_DB: parlamentaria
+      POSTGRES_USER: parlamentaria
+      POSTGRES_PASSWORD: P4R14M3NT4R14
+    restart: unless-stopped
+
+  redis:
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
+  # Cloudflare Tunnel
+  # Somente utilize se o proxmox não tiver um LXC com o Cloudflare Tunnel
+  # já configurado
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
+  #  network_mode: "service:backend"

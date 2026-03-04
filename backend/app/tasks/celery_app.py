@@ -32,25 +32,46 @@ celery_app.conf.update(
 )
 
 # Periodic task schedule (Celery beat)
+# Sincronização 2x/dia (manhã 6h e noite 20h) — a Câmara não publica
+# proposições/votações com frequência que justifique polling a cada 15 min.
+# Tasks escalonadas para que dependências rodem em sequência.
 celery_app.conf.beat_schedule = {
-    "sync-proposicoes-every-15min": {
+    # === Manhã (6h-7h) ===
+    "sync-proposicoes-morning": {
         "task": "app.tasks.sync_proposicoes.sync_proposicoes_task",
-        "schedule": crontab(minute="*/15"),
+        "schedule": crontab(hour=6, minute=0),  # 06:00
         "args": (),
     },
-    "sync-votacoes-every-15min": {
+    "sync-votacoes-morning": {
         "task": "app.tasks.sync_votacoes.sync_votacoes_task",
-        "schedule": crontab(minute="*/15"),
+        "schedule": crontab(hour=6, minute=30),  # 06:30
         "args": (),
     },
-    "gerar-comparativos-every-30min": {
+    "gerar-comparativos-morning": {
         "task": "app.tasks.gerar_comparativos.gerar_comparativos_task",
-        "schedule": crontab(minute="*/30"),
+        "schedule": crontab(hour=7, minute=0),  # 07:00
         "args": (),
     },
+    # === Noite (20h-21h) — captura resultados de sessões diurnas ===
+    "sync-proposicoes-evening": {
+        "task": "app.tasks.sync_proposicoes.sync_proposicoes_task",
+        "schedule": crontab(hour=20, minute=0),  # 20:00
+        "args": (),
+    },
+    "sync-votacoes-evening": {
+        "task": "app.tasks.sync_votacoes.sync_votacoes_task",
+        "schedule": crontab(hour=20, minute=30),  # 20:30
+        "args": (),
+    },
+    "gerar-comparativos-evening": {
+        "task": "app.tasks.gerar_comparativos.gerar_comparativos_task",
+        "schedule": crontab(hour=21, minute=0),  # 21:00
+        "args": (),
+    },
+    # === Madrugada — manutenção ===
     "reindex-embeddings-daily": {
         "task": "app.tasks.generate_embeddings.reindex_all_embeddings_task",
-        "schedule": crontab(hour=3, minute=0),  # Daily at 3 AM
+        "schedule": crontab(hour=3, minute=0),  # 03:00
         "args": (),
     },
 }
