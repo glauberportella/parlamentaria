@@ -6,11 +6,19 @@ from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.eleitor import Eleitor
+from app.domain.eleitor import Eleitor, NivelVerificacao
 from app.exceptions import NotFoundException, ValidationException
 from app.logging import get_logger
 from app.repositories.eleitor import EleitorRepository
 from app.schemas.eleitor import EleitorCreate, EleitorUpdate
+from app.services.validators import (
+    validar_cpf,
+    validar_titulo_eleitor,
+    extrair_uf_titulo,
+    hash_documento,
+    extrair_cpf_digitos,
+    extrair_titulo_digitos,
+)
 
 logger = get_logger(__name__)
 
@@ -105,9 +113,18 @@ class EleitorService:
             if existing:
                 raise ValidationException(detail=f"chat_id {data.chat_id} já cadastrado")
 
-        eleitor = Eleitor(**data.model_dump())
+        eleitor = Eleitor(**data.model_dump(exclude={"cpf", "titulo_eleitor"}))
         result = await self.repo.create(eleitor)
         logger.info("eleitor.registered", id=str(result.id), nome=result.nome)
+
+        # Register CPF if provided in the creation data
+        if data.cpf:
+            result, _ = await self.registrar_cpf(result.id, data.cpf)
+
+        # Register título if provided in the creation data
+        if data.titulo_eleitor:
+            result, _ = await self.verificar_titulo_eleitor(result.id, data.titulo_eleitor)
+
         return result
 
     async def update_profile(self, eleitor_id: uuid.UUID, data: EleitorUpdate) -> Eleitor:
@@ -168,7 +185,7 @@ class EleitorService:
         return await self.repo.count()
 
     # ------------------------------------------------------------------
-    # Eligibility (elegibilidade) — Fase limite-eleitor
+    # Eligibility & Verification — Sistema de Verificação Progressiva
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -178,42 +195,77 @@ class EleitorService:
         Criteria (CF/88, Art. 14):
         - Brazilian citizen (self-declared).
         - 16 years of age or older.
-        - Account verified.
+        - At least AUTO_DECLARADO verification level with CPF.
 
         Args:
             eleitor: Eleitor instance to check.
 
         Returns:
-            Dict with ``elegivel`` bool and ``motivo`` explanation if not eligible.
+            Dict with ``elegivel`` bool, ``motivo`` explanation,
+            ``nivel_verificacao`` and ``proximo_passo``.
         """
+        nivel = getattr(eleitor, "nivel_verificacao", NivelVerificacao.NAO_VERIFICADO)
+        if isinstance(nivel, str):
+            try:
+                nivel = NivelVerificacao(nivel)
+            except ValueError:
+                nivel = NivelVerificacao.NAO_VERIFICADO
+
+        base = {
+            "elegivel": False,
+            "motivo": None,
+            "nivel_verificacao": nivel.value if isinstance(nivel, NivelVerificacao) else str(nivel),
+        }
+
         if not eleitor.cidadao_brasileiro:
             return {
-                "elegivel": False,
+                **base,
                 "motivo": "Apenas cidadãos brasileiros podem emitir voto oficial. "
                           "Sua opinião será registrada como voto consultivo.",
+                "proximo_passo": "Informe que é cidadão brasileiro durante o cadastro.",
             }
 
         if eleitor.data_nascimento is None:
             return {
-                "elegivel": False,
+                **base,
                 "motivo": "Informe sua data de nascimento para verificar elegibilidade.",
+                "proximo_passo": "Forneça sua data de nascimento (DD/MM/AAAA).",
             }
 
         idade = eleitor.idade
         if idade is not None and idade < 16:
             return {
-                "elegivel": False,
+                **base,
                 "motivo": f"Você tem {idade} anos. O voto é permitido a partir de 16 anos (CF/88 Art. 14). "
                           "Sua opinião será registrada como voto consultivo.",
+                "proximo_passo": None,
             }
 
-        if not eleitor.verificado:
+        cpf_hash = getattr(eleitor, "cpf_hash", None)
+        if cpf_hash is None:
             return {
-                "elegivel": False,
-                "motivo": "Complete a verificação do seu cadastro para emitir voto oficial.",
+                **base,
+                "motivo": "Informe seu CPF para completar a verificação.",
+                "proximo_passo": "Forneça seu CPF (somente números).",
             }
 
-        return {"elegivel": True, "motivo": None}
+        if nivel == NivelVerificacao.NAO_VERIFICADO:
+            return {
+                **base,
+                "motivo": "Complete seu cadastro para votar oficialmente.",
+                "proximo_passo": "Forneça nome, UF, CPF e data de nascimento.",
+            }
+
+        return {
+            "elegivel": True,
+            "motivo": None,
+            "nivel_verificacao": nivel.value if isinstance(nivel, NivelVerificacao) else str(nivel),
+            "proximo_passo": (
+                "Para aumentar a confiança do seu voto, valide seu título de eleitor com /verificar."
+                if nivel == NivelVerificacao.AUTO_DECLARADO
+                else None
+            ),
+        }
 
     async def atualizar_cidadania(
         self,
@@ -250,3 +302,150 @@ class EleitorService:
             elegivel=result.elegivel,
         )
         return result
+
+    async def registrar_cpf(
+        self,
+        eleitor_id: uuid.UUID,
+        cpf: str,
+    ) -> tuple[Eleitor, dict]:
+        """Validate and register a CPF for a voter.
+
+        The CPF is validated mathematically, then stored as a SHA-256 hash.
+        If the CPF is already registered to another voter, the operation fails
+        (one person, one vote).
+
+        If the voter has name, UF, birth date, citizenship, and now CPF,
+        their verification level is promoted to AUTO_DECLARADO.
+
+        Args:
+            eleitor_id: Voter UUID.
+            cpf: CPF string (with or without formatting).
+
+        Returns:
+            Tuple of (updated Eleitor, validation result dict).
+
+        Raises:
+            NotFoundException: If voter not found.
+            ValidationException: If CPF is invalid or already registered.
+        """
+        # Validate CPF digits
+        is_valid, message = validar_cpf(cpf)
+        if not is_valid:
+            raise ValidationException(detail=message)
+
+        cpf_hashed = hash_documento(cpf)
+
+        # Check uniqueness
+        existing = await self.repo.find_by_cpf_hash(cpf_hashed)
+        if existing and existing.id != eleitor_id:
+            raise ValidationException(
+                detail="Este CPF já está registrado em outra conta. "
+                       "Cada pessoa pode ter apenas uma conta na plataforma."
+            )
+
+        eleitor = await self.repo.get_by_id_or_raise(eleitor_id)
+
+        update_data: dict = {"cpf_hash": cpf_hashed}
+
+        # Auto-promote to AUTO_DECLARADO if all basic data is present
+        nivel = getattr(eleitor, "nivel_verificacao", NivelVerificacao.NAO_VERIFICADO)
+        if isinstance(nivel, str):
+            try:
+                nivel = NivelVerificacao(nivel)
+            except ValueError:
+                nivel = NivelVerificacao.NAO_VERIFICADO
+
+        if (
+            nivel == NivelVerificacao.NAO_VERIFICADO
+            and eleitor.nome
+            and eleitor.uf
+            and eleitor.uf != "XX"
+            and eleitor.cidadao_brasileiro
+            and eleitor.data_nascimento is not None
+        ):
+            update_data["nivel_verificacao"] = NivelVerificacao.AUTO_DECLARADO
+            update_data["verificado"] = True
+
+        result = await self.repo.update(eleitor, update_data)
+        logger.info(
+            "eleitor.cpf_registrado",
+            id=str(result.id),
+            nivel=str(result.nivel_verificacao),
+            elegivel=result.elegivel,
+        )
+
+        return result, {
+            "cpf_valido": True,
+            "nivel_verificacao": result.nivel_verificacao.value
+            if isinstance(result.nivel_verificacao, NivelVerificacao)
+            else str(result.nivel_verificacao),
+            "elegivel": result.elegivel,
+        }
+
+    async def verificar_titulo_eleitor(
+        self,
+        eleitor_id: uuid.UUID,
+        titulo: str,
+    ) -> tuple[Eleitor, dict]:
+        """Validate and register a título de eleitor for a voter.
+
+        The título is validated mathematically. The UF encoded in the título
+        is cross-checked against the declared UF.  Stored as SHA-256 hash.
+
+        Promotes verification level to VERIFICADO_TITULO on success.
+
+        Args:
+            eleitor_id: Voter UUID.
+            titulo: Título de eleitor string (12 digits).
+
+        Returns:
+            Tuple of (updated Eleitor, validation result dict).
+
+        Raises:
+            NotFoundException: If voter not found.
+            ValidationException: If título is invalid, UF mismatch, or already registered.
+        """
+        is_valid, message = validar_titulo_eleitor(titulo)
+        if not is_valid:
+            raise ValidationException(detail=message)
+
+        titulo_hashed = hash_documento(titulo)
+
+        # Check uniqueness
+        existing = await self.repo.find_by_titulo_hash(titulo_hashed)
+        if existing and existing.id != eleitor_id:
+            raise ValidationException(
+                detail="Este título de eleitor já está registrado em outra conta."
+            )
+
+        eleitor = await self.repo.get_by_id_or_raise(eleitor_id)
+
+        # Cross-check UF
+        uf_titulo = extrair_uf_titulo(titulo)
+        if uf_titulo and eleitor.uf and eleitor.uf != "XX":
+            if uf_titulo not in ("ZZ", "EX") and uf_titulo != eleitor.uf:
+                raise ValidationException(
+                    detail=f"O título pertence a {uf_titulo}, mas seu cadastro indica {eleitor.uf}. "
+                           "Atualize sua UF ou verifique o número do título."
+                )
+
+        update_data: dict = {
+            "titulo_eleitor_hash": titulo_hashed,
+            "nivel_verificacao": NivelVerificacao.VERIFICADO_TITULO,
+            "verificado": True,
+        }
+
+        result = await self.repo.update(eleitor, update_data)
+        logger.info(
+            "eleitor.titulo_verificado",
+            id=str(result.id),
+            nivel=NivelVerificacao.VERIFICADO_TITULO.value,
+            elegivel=result.elegivel,
+        )
+
+        return result, {
+            "titulo_valido": True,
+            "uf_titulo": uf_titulo,
+            "nivel_verificacao": NivelVerificacao.VERIFICADO_TITULO.value,
+            "elegivel": result.elegivel,
+        }

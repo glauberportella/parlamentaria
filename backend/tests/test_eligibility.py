@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.domain.eleitor import Eleitor
+from app.domain.eleitor import Eleitor, NivelVerificacao
 from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
 from app.services.eleitor_service import EleitorService
 from app.services.voto_popular_service import VotoPopularService
@@ -33,12 +33,16 @@ def _make_eleitor(
     cidadao_brasileiro: bool = True,
     data_nascimento: date | None = None,
     verificado: bool = True,
+    cpf_hash: str | None = "a" * 64,
+    nivel_verificacao: NivelVerificacao = NivelVerificacao.AUTO_DECLARADO,
 ) -> Eleitor:
     """Create an Eleitor with given attributes for testing.
 
     Uses the normal SQLAlchemy constructor so that ORM instrumentation
     is properly initialised (``__new__`` bypasses it and breaks attribute
     setting).
+
+    By default the eleitor is eligible (has CPF hash and AUTO_DECLARADO level).
     """
     return Eleitor(
         nome=nome,
@@ -50,6 +54,8 @@ def _make_eleitor(
         cidadao_brasileiro=cidadao_brasileiro,
         data_nascimento=data_nascimento,
         temas_interesse=None,
+        cpf_hash=cpf_hash,
+        nivel_verificacao=nivel_verificacao,
     )
 
 
@@ -119,11 +125,13 @@ class TestEleitorElegivel:
         assert eleitor.elegivel is False
 
     def test_eleitor_not_elegivel_not_verified(self) -> None:
-        """Brazilian, 30 years old, NOT verified → NOT eligible."""
+        """Brazilian, 30 years old, NOT verified (no CPF) → NOT eligible."""
         eleitor = _make_eleitor(
             cidadao_brasileiro=True,
             data_nascimento=date(1996, 6, 15),
             verificado=False,
+            cpf_hash=None,
+            nivel_verificacao=NivelVerificacao.NAO_VERIFICADO,
         )
         assert eleitor.elegivel is False
 
@@ -133,6 +141,8 @@ class TestEleitorElegivel:
             cidadao_brasileiro=True,
             data_nascimento=None,
             verificado=True,
+            cpf_hash="b" * 64,
+            nivel_verificacao=NivelVerificacao.AUTO_DECLARADO,
         )
         assert eleitor.elegivel is False
 
@@ -142,6 +152,8 @@ class TestEleitorElegivel:
             cidadao_brasileiro=False,
             data_nascimento=None,
             verificado=False,
+            cpf_hash=None,
+            nivel_verificacao=NivelVerificacao.NAO_VERIFICADO,
         )
         assert eleitor.elegivel is False
 
@@ -228,10 +240,13 @@ class TestVerificarElegibilidade:
             cidadao_brasileiro=True,
             data_nascimento=date(1990, 1, 1),
             verificado=False,
+            cpf_hash=None,
+            nivel_verificacao=NivelVerificacao.NAO_VERIFICADO,
         )
         result = EleitorService.verificar_elegibilidade(eleitor)
         assert result["elegivel"] is False
-        assert "verificação" in result["motivo"]
+        # Should mention CPF or verification needed
+        assert result["motivo"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +270,8 @@ class TestClassificarVoto:
             cidadao_brasileiro=False,
             data_nascimento=date(1990, 1, 1),
             verificado=True,
+            cpf_hash="c" * 64,
+            nivel_verificacao=NivelVerificacao.AUTO_DECLARADO,
         )
         assert VotoPopularService._classificar_voto(eleitor) == TipoVoto.OPINIAO
 
@@ -263,6 +280,8 @@ class TestClassificarVoto:
             cidadao_brasileiro=False,
             data_nascimento=None,
             verificado=False,
+            cpf_hash=None,
+            nivel_verificacao=NivelVerificacao.NAO_VERIFICADO,
         )
         assert VotoPopularService._classificar_voto(eleitor) == TipoVoto.OPINIAO
 

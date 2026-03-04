@@ -109,10 +109,22 @@ Assinar o feed da Parlamentaria é uma demonstração concreta de que **a vontad
 3. **Notificação** — Eleitores recebem alertas sobre temas do seu interesse
 4. **Conversa** — O eleitor pergunta, o agente explica — sem jargão político
 5. **Voto Popular** — O eleitor registra sua posição com um toque
-6. **Consolidação** — Votos são agregados em tempo real
+6. **Consolidação** — Votos são agregados em tempo real (oficiais e consultivos separados)
 7. **Publicação** — Resultados são disponibilizados via RSS Feed e Webhooks
 8. **Comparativo** — Quando a Câmara vota, o sistema compara com o voto popular
 9. **Feedback** — O eleitor recebe: "A proposição X foi aprovada. 73% dos eleitores queriam SIM. Alinhamento: 95%"
+
+### Verificação de identidade
+
+O sistema implementa **verificação progressiva** para equilibrar inclusão e integridade:
+
+| Nível | O que precisa | Tipo de voto |
+|-------|--------------|-------------|
+| 🔓 Não verificado | Conta criada | Opinião consultiva |
+| ✅ Auto-declarado | Nome, UF, CPF, nascimento | **Voto oficial** |
+| 🛡️ Título verificado | + Título de eleitor | **Voto oficial** (máxima confiança) |
+
+> **Privacidade**: CPF e título de eleitor são armazenados como hash SHA-256 — nunca em texto. O sistema não pode recuperar o número original.
 
 ---
 

@@ -164,6 +164,9 @@ async def consultar_perfil_eleitor(chat_id: str) -> dict:
                     "message": "Eleitor não cadastrado. Inicie o cadastro.",
                 }
 
+            nivel = eleitor.nivel_verificacao
+            nivel_str = nivel.value if hasattr(nivel, 'value') else str(nivel)
+
             return {
                 "status": "success",
                 "eleitor": {
@@ -174,6 +177,9 @@ async def consultar_perfil_eleitor(chat_id: str) -> dict:
                     "cidadao_brasileiro": eleitor.cidadao_brasileiro,
                     "data_nascimento": str(eleitor.data_nascimento) if eleitor.data_nascimento else None,
                     "elegivel": eleitor.elegivel,
+                    "nivel_verificacao": nivel_str,
+                    "cpf_registrado": eleitor.cpf_hash is not None,
+                    "titulo_registrado": eleitor.titulo_eleitor_hash is not None,
                     "temas_interesse": eleitor.temas_interesse or [],
                     "channel": eleitor.channel,
                 },
@@ -190,12 +196,18 @@ async def cadastrar_eleitor(
     channel: str = "telegram",
     cidadao_brasileiro: bool = False,
     data_nascimento: str = "",
+    cpf: str = "",
 ) -> dict:
     """Cadastra ou atualiza dados de um eleitor.
 
     Use quando o eleitor fornecer nome e UF durante a conversa.
-    Pergunte também se é cidadão brasileiro e a data de nascimento
-    para determinar se o voto será oficial ou consultivo.
+    Pergunte também se é cidadão brasileiro, a data de nascimento
+    e o CPF para determinar se o voto será oficial ou consultivo.
+
+    Se o CPF for fornecido, ele será validado matematicamente e armazenado
+    como hash SHA-256 (nunca em texto). Se todos os dados estiverem completos
+    (nome, UF, CPF, data de nascimento, cidadania), o nível de verificação
+    sobe para AUTO_DECLARADO automaticamente.
 
     Args:
         chat_id: ID do chat no mensageiro.
@@ -204,6 +216,7 @@ async def cadastrar_eleitor(
         channel: Canal de mensageria ('telegram' ou 'whatsapp').
         cidadao_brasileiro: Se o eleitor é cidadão brasileiro.
         data_nascimento: Data de nascimento no formato 'AAAA-MM-DD' (ex: '1990-05-15').
+        cpf: CPF do eleitor (somente números, 11 dígitos). Opcional.
 
     Returns:
         Dict com status, dados do eleitor e informação de elegibilidade.
@@ -247,9 +260,20 @@ async def cadastrar_eleitor(
 
             update_data = EleitorUpdate(**update_fields)
             updated = await service.update_profile(eleitor.id, update_data)
+
+            # Register CPF if provided
+            cpf_result = None
+            if cpf and cpf.strip():
+                try:
+                    updated, cpf_result = await service.registrar_cpf(updated.id, cpf.strip())
+                except Exception as cpf_err:
+                    cpf_result = {"cpf_valido": False, "erro": str(cpf_err)}
+
             await session.commit()
 
             elegibilidade = EleitorService.verificar_elegibilidade(updated)
+            nivel = updated.nivel_verificacao
+            nivel_str = nivel.value if hasattr(nivel, 'value') else str(nivel)
 
             result = {
                 "status": "success",
@@ -261,9 +285,15 @@ async def cadastrar_eleitor(
                     "verificado": updated.verificado,
                     "cidadao_brasileiro": updated.cidadao_brasileiro,
                     "elegivel": updated.elegivel,
+                    "nivel_verificacao": nivel_str,
+                    "cpf_registrado": updated.cpf_hash is not None,
+                    "titulo_registrado": updated.titulo_eleitor_hash is not None,
                 },
                 "elegibilidade": elegibilidade,
             }
+
+            if cpf_result:
+                result["cpf_validacao"] = cpf_result
 
             if not updated.elegivel:
                 result["aviso"] = (
@@ -312,5 +342,69 @@ async def atualizar_temas_interesse(
                 "temas": temas_list,
                 "message": f"Seus temas de interesse foram atualizados: {', '.join(temas_list)}",
             }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+async def verificar_titulo_eleitor(
+    chat_id: str,
+    titulo: str,
+) -> dict:
+    """Verifica e registra o título de eleitor de um eleitor cadastrado.
+
+    O título é validado matematicamente (12 dígitos + verificadores) e
+    a UF do título é comparada com a UF do cadastro. Se válido,
+    o nível de verificação sobe para VERIFICADO_TITULO (máximo offline).
+
+    Este é o nível mais alto de verificação disponível na plataforma.
+    O eleitor deve ter um cadastro completo (nome, UF, CPF) antes.
+
+    Args:
+        chat_id: ID do chat no mensageiro.
+        titulo: Número do título de eleitor (12 dígitos, somente números).
+
+    Returns:
+        Dict com status, resultado da validação e novo nível de verificação.
+    """
+    try:
+        async with async_session_factory() as session:
+            service = EleitorService(session)
+            eleitor = await service.get_by_chat_id(chat_id)
+
+            if eleitor is None:
+                return {
+                    "status": "not_found",
+                    "message": "Eleitor não cadastrado. Faça o cadastro primeiro com /cadastro.",
+                }
+
+            if eleitor.cpf_hash is None:
+                return {
+                    "status": "error",
+                    "error": "Registre seu CPF antes de verificar o título de eleitor.",
+                }
+
+            try:
+                updated, resultado = await service.verificar_titulo_eleitor(
+                    eleitor.id, titulo.strip()
+                )
+                await session.commit()
+
+                return {
+                    "status": "success",
+                    "message": "Título de eleitor verificado com sucesso! "
+                               "Seu nível de verificação foi promovido para VERIFICADO_TITULO.",
+                    "verificacao": resultado,
+                    "eleitor": {
+                        "id": str(updated.id),
+                        "nome": updated.nome,
+                        "elegivel": updated.elegivel,
+                        "nivel_verificacao": resultado["nivel_verificacao"],
+                    },
+                }
+            except Exception as val_err:
+                return {
+                    "status": "error",
+                    "error": str(val_err),
+                }
     except Exception as e:
         return {"status": "error", "error": str(e)}

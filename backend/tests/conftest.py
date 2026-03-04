@@ -165,8 +165,11 @@ def sample_eleitor_data() -> dict:
     """Return a dict of valid Eleitor fields.
 
     The eleitor is created as eligible by default (cidadão brasileiro,
-    16+ years old, verified) so that votes are classified as OFICIAL.
+    16+ years old, verified with CPF hash, AUTO_DECLARADO level)
+    so that votes are classified as OFICIAL.
     """
+    from app.domain.eleitor import NivelVerificacao
+
     return {
         "nome": "Maria Silva",
         "email": "maria@example.com",
@@ -176,6 +179,8 @@ def sample_eleitor_data() -> dict:
         "cidadao_brasileiro": True,
         "data_nascimento": date(1990, 6, 15),
         "verificado": True,
+        "cpf_hash": "a" * 64,  # Simulated SHA-256 hash
+        "nivel_verificacao": NivelVerificacao.AUTO_DECLARADO,
     }
 
 

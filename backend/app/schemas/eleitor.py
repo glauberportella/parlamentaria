@@ -5,6 +5,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.domain.eleitor import NivelVerificacao
+
 
 class EleitorBase(BaseModel):
     """Shared fields for voter DTOs."""
@@ -22,6 +24,8 @@ class EleitorCreate(EleitorBase):
     temas_interesse: list[str] | None = None
     data_nascimento: date | None = None
     cidadao_brasileiro: bool = False
+    cpf: str | None = Field(None, description="CPF (only digits). Stored as SHA-256 hash.")
+    titulo_eleitor: str | None = Field(None, description="Título de eleitor (12 digits). Stored as hash.")
 
 
 class EleitorUpdate(BaseModel):
@@ -35,6 +39,9 @@ class EleitorUpdate(BaseModel):
     temas_interesse: list[str] | None = None
     data_nascimento: date | None = None
     cidadao_brasileiro: bool | None = None
+    cpf_hash: str | None = Field(None, description="Pre-hashed CPF (SHA-256).")
+    titulo_eleitor_hash: str | None = Field(None, description="Pre-hashed título (SHA-256).")
+    nivel_verificacao: NivelVerificacao | None = None
 
 
 class EleitorResponse(EleitorBase):
@@ -48,6 +55,10 @@ class EleitorResponse(EleitorBase):
     data_nascimento: date | None = None
     cidadao_brasileiro: bool = False
     elegivel: bool = False
+    nivel_verificacao: NivelVerificacao = NivelVerificacao.NAO_VERIFICADO
+    cpf_registrado: bool = False
+    titulo_registrado: bool = False
     data_cadastro: datetime
 
     model_config = {"from_attributes": True}
+

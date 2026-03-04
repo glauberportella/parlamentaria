@@ -42,6 +42,34 @@ class EleitorRepository(BaseRepository[Eleitor]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def find_by_cpf_hash(self, cpf_hash: str) -> Eleitor | None:
+        """Find a voter by the SHA-256 hash of their CPF.
+
+        Used to enforce one-person-one-vote by preventing duplicate CPFs.
+
+        Args:
+            cpf_hash: SHA-256 hex digest of the CPF digits.
+
+        Returns:
+            Eleitor or None.
+        """
+        stmt = select(Eleitor).where(Eleitor.cpf_hash == cpf_hash)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def find_by_titulo_hash(self, titulo_hash: str) -> Eleitor | None:
+        """Find a voter by the SHA-256 hash of their título de eleitor.
+
+        Args:
+            titulo_hash: SHA-256 hex digest of the título digits.
+
+        Returns:
+            Eleitor or None.
+        """
+        stmt = select(Eleitor).where(Eleitor.titulo_eleitor_hash == titulo_hash)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def find_by_uf(self, uf: str, offset: int = 0, limit: int = 50) -> Sequence[Eleitor]:
         """Find voters by state.
 
