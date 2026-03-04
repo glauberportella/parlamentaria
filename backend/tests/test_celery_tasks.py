@@ -379,9 +379,16 @@ class TestCeleryAppConfig:
         from app.tasks.celery_app import celery_app
 
         schedule = celery_app.conf.beat_schedule
-        assert "sync-proposicoes-every-15min" in schedule
-        assert "sync-votacoes-every-15min" in schedule
-        assert "gerar-comparativos-every-30min" in schedule
+        # Manhã (6h-7h)
+        assert "sync-proposicoes-morning" in schedule
+        assert "sync-votacoes-morning" in schedule
+        assert "gerar-comparativos-morning" in schedule
+        # Noite (20h-21h)
+        assert "sync-proposicoes-evening" in schedule
+        assert "sync-votacoes-evening" in schedule
+        assert "gerar-comparativos-evening" in schedule
+        # Madrugada
+        assert "reindex-embeddings-daily" in schedule
 
     def test_celery_uses_json_serializer(self):
         from app.tasks.celery_app import celery_app

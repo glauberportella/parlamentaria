@@ -54,7 +54,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+    CMD curl -f -H "Host: parlamentaria.app" http://localhost:8000/health || exit 1
 
 CMD ["python", "-m", "gunicorn", "app.main:app", \
      "-w", "${WEB_CONCURRENCY}", \

@@ -721,7 +721,7 @@ Eleitor (Telegram)
 
 ### 9.1 Módulo: Sincronização com a Câmara (`sync_service`)
 
-- **Job periódico** (Celery beat) a cada 15 minutos.
+- **Job periódico** (Celery beat) 2x/dia (manhã 6h e noite 20h).
 - Sincroniza proposições recentes, votações do dia, eventos com pauta.
 - Usa paginação da API para consumir dados incrementalmente.
 - Persiste no PostgreSQL com lógica de upsert (evita duplicatas).
