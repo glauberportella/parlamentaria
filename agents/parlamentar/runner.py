@@ -42,11 +42,9 @@ def get_session_service() -> InMemorySessionService | DatabaseSessionService:
 
     if settings.is_production:
         # Production: persistent sessions via database
-        # ADK DatabaseSessionService uses its own SQLAlchemy setup
-        db_url = settings.database_url.replace(
-            "postgresql+asyncpg://", "postgresql+aiosqlite://"
-        ) if "asyncpg" in settings.database_url else settings.database_url
-        _session_service = DatabaseSessionService(db_url=db_url)
+        # ADK DatabaseSessionService uses create_async_engine internally,
+        # so postgresql+asyncpg:// is the correct driver for PostgreSQL.
+        _session_service = DatabaseSessionService(db_url=settings.database_url)
         logger.info("agent.session_service", type="database")
     else:
         # Development: in-memory sessions
