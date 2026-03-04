@@ -456,8 +456,17 @@ Eleitor
 ├── nome: str
 ├── email: str (unique)
 ├── uf: str (2 chars, sigla estado)
+├── chat_id: str | None (unique, ID do mensageiro)
+├── channel: str (telegram, whatsapp)
 ├── verificado: bool
+├── cidadao_brasileiro: bool
+├── data_nascimento: date | None
+├── cpf_hash: str | None (SHA-256, unique)
+├── titulo_eleitor_hash: str | None (SHA-256, unique)
+├── nivel_verificacao: NivelVerificacao (NAO_VERIFICADO, AUTO_DECLARADO, VERIFICADO_TITULO)
+├── temas_interesse: list[str] | None
 ├── data_cadastro: datetime
+├── updated_at: datetime
 └── votos: list[VotoPopular]
 
 VotoPopular
@@ -465,6 +474,7 @@ VotoPopular
 ├── eleitor_id: uuid
 ├── proposicao_id: int
 ├── voto: enum (SIM, NAO, ABSTENCAO)
+├── tipo_voto: enum (OFICIAL, OPINIAO)   # Classificação automática por elegibilidade
 ├── data_voto: datetime
 └── justificativa: str | None
 
@@ -734,10 +744,40 @@ Eleitor (Telegram)
 
 ### 9.4 Módulo: Gestão de Eleitores (`eleitor_service`)
 
-- Cadastro via conversa com o `EleitorAgent` (pede nome, UF, confirmação).
+- Cadastro via conversa com o `EleitorAgent` (pede nome, UF, cidadania, data de nascimento, CPF).
 - Identificação pelo `chat_id` do mensageiro (Telegram ID).
-- Perfil mínimo: sem coleta excessiva de dados.
+- Perfil progressivo: dados coletados em etapas naturais da conversa.
 - Preferências: temas de interesse para notificações proativas.
+- **Verificação de identidade**: sistema progressivo de verificação (ver 9.4.1).
+
+#### 9.4.1 Sistema de Verificação Progressiva
+
+O sistema implementa **três níveis de verificação** progressivos para equilibrar
+inclusão (qualquer pessoa pode participar) com integridade (votos oficiais requerem
+identificação básica):
+
+| Nível | Enum | Requisitos | Tipo de Voto |
+|-------|------|-----------|-------------|
+| 1 | `NAO_VERIFICADO` | Conta criada, dados mínimos | OPINIÃO (consultivo) |
+| 2 | `AUTO_DECLARADO` | Nome, UF, CPF, nascimento, cidadania | OFICIAL |
+| 3 | `VERIFICADO_TITULO` | + Título de eleitor validado | OFICIAL (máxima confiança) |
+
+**Validações implementadas:**
+- **CPF**: Algoritmo módulo-11 com blacklist (dígitos iguais). Apenas hash SHA-256 armazenado.
+- **Título de Eleitor**: Algoritmo de 12 dígitos (8 sequenciais + 2 código estado + 2 verificadores),
+  tratamento especial para SP/MG (estados 01/02). UF do título cruzada com UF do cadastro.
+
+**Segurança de dados:**
+- CPF e título de eleitor **nunca** são armazenados em texto — apenas hashes SHA-256 (64 chars hex).
+- Um CPF = uma conta (constraint UNIQUE impede duplicidade).
+- O hash impede que o número original seja recuperado, mesmo em caso de vazamento.
+
+**Fluxo típico:**
+```
+1. Usuário inicia conversa → conta criada (NAO_VERIFICADO)
+2. Fornece nome, UF, cidadania, nascimento, CPF → AUTO_DECLARADO (votos OFICIAIS)
+3. Opcionalmente valida título de eleitor → VERIFICADO_TITULO (máxima confiança)
+```
 
 ### 9.5 Módulo: Notificações Proativas
 
@@ -1084,6 +1124,9 @@ class ExternalAPIException(AppException):
 ## 15. Segurança
 
 - **Autenticação**: eleitores identificados pelo `chat_id` do mensageiro + verificação via conversa.
+- **Verificação de identidade**: CPF e título de eleitor validados matematicamente, armazenados como hash SHA-256 (nunca em texto).
+- **Privacidade**: documentos de identidade são irreversivelmente hasheados — mesmo em vazamento, números originais não podem ser recuperados.
+- **Unicidade**: constraints UNIQUE em cpf_hash e titulo_eleitor_hash garantem 1 pessoa = 1 conta.
 - **Admin API**: protegida por API key no header `X-API-Key`.
 - **Webhook Validation**: validar assinatura/secret dos webhooks Telegram/WhatsApp.
 - **Rate limiting**: aplicar no backend com `slowapi` (por chat_id e por IP).

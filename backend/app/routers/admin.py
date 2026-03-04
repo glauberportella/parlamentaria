@@ -65,9 +65,13 @@ async def get_resultado_votacao(
     proposicao_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Get consolidated popular vote result for a proposition."""
+    """Get consolidated popular vote result for a proposition.
+
+    Returns both the official result (eligible voters only) and
+    the consultive result (all votes including opinions).
+    """
     service = VotoPopularService(db)
-    return await service.obter_resultado(proposicao_id)
+    return await service.obter_resultado_completo(proposicao_id)
 
 
 @router.post("/proposicoes/{proposicao_id}/analisar", dependencies=[Depends(verify_api_key)])

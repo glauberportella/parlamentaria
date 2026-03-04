@@ -11,6 +11,7 @@ from agents.parlamentar.tools.db_tools import (
     consultar_perfil_eleitor,
     cadastrar_eleitor,
     atualizar_temas_interesse,
+    verificar_titulo_eleitor,
 )
 from agents.parlamentar.tools.notification_tools import verificar_notificacoes
 
@@ -20,8 +21,9 @@ eleitor_agent = LlmAgent(
         "Responsável pelo cadastro e perfil do eleitor. "
         "Registra novos eleitores, atualiza dados pessoais e gerencia "
         "temas de interesse para notificações proativas. "
-        "Use quando o eleitor quiser se cadastrar, atualizar perfil ou "
-        "configurar notificações."
+        "Também verifica título de eleitor para aumentar nível de confiança. "
+        "Use quando o eleitor quiser se cadastrar, atualizar perfil, "
+        "configurar notificações ou verificar título de eleitor."
     ),
     model=settings.agent_model,
     instruction=ELEITOR_AGENT_INSTRUCTION,
@@ -30,5 +32,6 @@ eleitor_agent = LlmAgent(
         cadastrar_eleitor,
         atualizar_temas_interesse,
         verificar_notificacoes,
+        verificar_titulo_eleitor,
     ],
 )

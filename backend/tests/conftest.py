@@ -162,13 +162,25 @@ def sample_proposicao_data() -> dict:
 
 @pytest.fixture
 def sample_eleitor_data() -> dict:
-    """Return a dict of valid Eleitor fields."""
+    """Return a dict of valid Eleitor fields.
+
+    The eleitor is created as eligible by default (cidadão brasileiro,
+    16+ years old, verified with CPF hash, AUTO_DECLARADO level)
+    so that votes are classified as OFICIAL.
+    """
+    from app.domain.eleitor import NivelVerificacao
+
     return {
         "nome": "Maria Silva",
         "email": "maria@example.com",
         "uf": "SP",
         "channel": "telegram",
         "chat_id": "12345678",
+        "cidadao_brasileiro": True,
+        "data_nascimento": date(1990, 6, 15),
+        "verificado": True,
+        "cpf_hash": "a" * 64,  # Simulated SHA-256 hash
+        "nivel_verificacao": NivelVerificacao.AUTO_DECLARADO,
     }
 
 

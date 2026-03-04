@@ -23,7 +23,7 @@ from app.domain.assinatura import AssinaturaRSS, AssinaturaWebhook
 from app.domain.comparativo import ComparativoVotacao
 from app.domain.eleitor import Eleitor
 from app.domain.proposicao import Proposicao
-from app.domain.voto_popular import VotoEnum, VotoPopular
+from app.domain.voto_popular import VotoEnum, VotoPopular, TipoVoto
 from app.services.publicacao_service import PublicacaoService
 
 
@@ -32,7 +32,7 @@ from app.services.publicacao_service import PublicacaoService
 # ---------------------------------------------------------------------------
 
 async def _create_proposicao_with_votes(db_session, prop_id=10001, temas=None):
-    """Helper: insert a proposicao + eleitor + votes for RSS feed tests."""
+    """Helper: insert a proposicao + eligible eleitor + OFICIAL votes for RSS feed tests."""
     prop = Proposicao(
         id=prop_id,
         tipo="PL",
@@ -51,6 +51,9 @@ async def _create_proposicao_with_votes(db_session, prop_id=10001, temas=None):
         uf="SP",
         chat_id=f"chat_{prop_id}",
         channel="telegram",
+        cidadao_brasileiro=True,
+        data_nascimento=date(1990, 1, 1),
+        verificado=True,
     )
     db_session.add(eleitor)
     await db_session.flush()
@@ -60,6 +63,7 @@ async def _create_proposicao_with_votes(db_session, prop_id=10001, temas=None):
         eleitor_id=eleitor.id,
         proposicao_id=prop_id,
         voto=VotoEnum.SIM,
+        tipo_voto=TipoVoto.OFICIAL,
     )
     db_session.add(voto)
     await db_session.flush()

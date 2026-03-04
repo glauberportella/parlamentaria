@@ -2,6 +2,9 @@
 
 These tools handle voter registration of votes on propositions and
 retrieval of voting results. Used by VotacaoAgent.
+
+Votes are automatically classified as OFICIAL (eligible Brazilian citizen)
+or OPINIAO (consultive) based on the voter's eligibility.
 """
 
 from __future__ import annotations
@@ -26,6 +29,12 @@ async def registrar_voto(
     apenas uma vez por proposição — se votar novamente, o último voto
     substitui o anterior.
 
+    O voto é automaticamente classificado:
+    - OFICIAL: cidadão brasileiro, 16+ anos, verificado — conta no resultado
+      oficial enviado aos parlamentares.
+    - OPINIÃO: todos os demais — registrado como consultivo, não impacta o
+      resultado oficial mas fica visível como opinião.
+
     Args:
         chat_id: ID do chat do eleitor no mensageiro.
         proposicao_id: ID da proposição legislativa.
@@ -33,7 +42,7 @@ async def registrar_voto(
         justificativa: Texto opcional explicando o motivo do voto.
 
     Returns:
-        Dict com status da operação e confirmação do voto registrado.
+        Dict com status da operação, tipo do voto e confirmação.
     """
     try:
         # Validate voto
@@ -55,7 +64,7 @@ async def registrar_voto(
                     "error": "Você precisa se cadastrar antes de votar. Me diga seu nome e estado.",
                 }
 
-            if not eleitor.verificado and not eleitor.nome:
+            if not eleitor.nome:
                 return {
                     "status": "error",
                     "error": "Complete seu cadastro (nome e UF) antes de votar.",
@@ -70,15 +79,30 @@ async def registrar_voto(
             )
             await session.commit()
 
-            return {
+            tipo_voto = result.tipo_voto.value if hasattr(result.tipo_voto, 'value') else str(result.tipo_voto)
+            is_oficial = tipo_voto == "OFICIAL"
+
+            response = {
                 "status": "success",
                 "message": f"Voto {voto_upper} registrado com sucesso para a proposição {proposicao_id}!",
                 "voto": {
                     "proposicao_id": proposicao_id,
                     "voto": voto_upper,
+                    "tipo_voto": tipo_voto,
                     "data": str(result.data_voto),
                 },
+                "elegivel": is_oficial,
             }
+
+            if not is_oficial:
+                response["aviso_elegibilidade"] = (
+                    "Seu voto foi registrado como OPINIÃO CONSULTIVA. "
+                    "Para que seu voto conte no resultado oficial enviado aos parlamentares, "
+                    "complete seu cadastro: informe que é cidadão brasileiro, "
+                    "sua data de nascimento (16+ anos) e verifique sua conta."
+                )
+
+            return response
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
@@ -86,30 +110,49 @@ async def registrar_voto(
 async def obter_resultado_votacao(proposicao_id: int) -> dict:
     """Obtém o resultado consolidado da votação popular sobre uma proposição.
 
-    Mostra quantos eleitores votaram SIM, NÃO e ABSTENÇÃO, com percentuais.
+    Retorna dois conjuntos de dados:
+    - OFICIAL: votos de cidadãos brasileiros elegíveis (16+, verificados).
+      Este é o resultado enviado aos parlamentares.
+    - CONSULTIVO: todos os votos (oficiais + opiniões). Serve como
+      termômetro geral de opinião.
 
     Args:
         proposicao_id: ID da proposição.
 
     Returns:
-        Dict com status e resultado consolidado da votação popular.
+        Dict com status e resultados oficial e consultivo da votação popular.
     """
     try:
         async with async_session_factory() as session:
             service = VotoPopularService(session)
-            resultado = await service.obter_resultado(proposicao_id)
+            resultado_completo = await service.obter_resultado_completo(proposicao_id)
+
+            oficial = resultado_completo["oficial"]
+            consultivo = resultado_completo["consultivo"]
 
             return {
                 "status": "success",
-                "resultado": {
+                "resultado_oficial": {
                     "proposicao_id": proposicao_id,
-                    "total_votos": resultado["total"],
-                    "sim": resultado["SIM"],
-                    "nao": resultado["NAO"],
-                    "abstencao": resultado["ABSTENCAO"],
-                    "percentual_sim": resultado["percentual_sim"],
-                    "percentual_nao": resultado["percentual_nao"],
-                    "percentual_abstencao": resultado["percentual_abstencao"],
+                    "descricao": "Votos de cidadãos brasileiros elegíveis (conta para parlamentares)",
+                    "total_votos": oficial["total"],
+                    "sim": oficial["SIM"],
+                    "nao": oficial["NAO"],
+                    "abstencao": oficial["ABSTENCAO"],
+                    "percentual_sim": oficial["percentual_sim"],
+                    "percentual_nao": oficial["percentual_nao"],
+                    "percentual_abstencao": oficial["percentual_abstencao"],
+                },
+                "resultado_consultivo": {
+                    "proposicao_id": proposicao_id,
+                    "descricao": "Todos os votos (oficiais + opiniões consultivas)",
+                    "total_votos": consultivo["total"],
+                    "sim": consultivo["SIM"],
+                    "nao": consultivo["NAO"],
+                    "abstencao": consultivo["ABSTENCAO"],
+                    "percentual_sim": consultivo["percentual_sim"],
+                    "percentual_nao": consultivo["percentual_nao"],
+                    "percentual_abstencao": consultivo["percentual_abstencao"],
                 },
             }
     except Exception as e:
