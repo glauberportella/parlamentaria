@@ -1119,6 +1119,42 @@ class ExternalAPIException(AppException):
 - Retry automático para chamadas à API da Câmara (3 tentativas, backoff exponencial).
 - Logging estruturado (JSON) com `structlog` — inclui request_id em cada log.
 
+### 14.1 Savepoints em Operações de Lote (Sync)
+
+Operações de sincronização em lote (ex: `sync_proposicoes`, `sync_votacoes`) processam muitos
+registros numa mesma session. Um erro em um único registro (ex: `IntegrityError`, `NotNullViolation`)
+**não deve corromper** a session e impedir o processamento dos demais.
+
+**Padrão obrigatório**: usar `session.begin_nested()` (SAVEPOINT do PostgreSQL) para isolar cada
+operação individual dentro de um loop de lote:
+
+```python
+for item in itens:
+    try:
+        async with self.session.begin_nested():
+            await self.service.upsert_from_api(item)
+        stats["created"] += 1
+    except Exception as e:
+        logger.error("sync.upsert_error", id=item.id, error=str(e))
+        stats["errors"] += 1
+        # Savepoint revertido automaticamente — session continua válida
+```
+
+**Por que não usar `session.rollback()` diretamente:**
+- `session.rollback()` reverte **toda** a transação, perdendo registros já persistidos.
+- Com `begin_nested()`, apenas o savepoint do registro com erro é revertido.
+- A session permanece em estado válido para os próximos registros.
+
+**Nas Celery tasks**: o `session.commit()` final deve ser protegido com `try/except`:
+
+```python
+try:
+    await session.commit()
+except Exception:
+    await session.rollback()
+    logger.warning("task.commit_failed_rollback")
+```
+
 ---
 
 ## 15. Segurança

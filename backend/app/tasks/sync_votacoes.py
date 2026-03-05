@@ -23,7 +23,11 @@ def sync_votacoes_task(self) -> dict:
             from app.services.sync_service import SyncService
             service = SyncService(session)
             stats = await service.sync_votacoes()
-            await session.commit()
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logger.warning("task.sync_votacoes.commit_failed_rollback")
             return stats
 
     try:
