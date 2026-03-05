@@ -1,6 +1,18 @@
 """Celery async tasks package."""
 
 from app.tasks.celery_app import celery_app  # noqa: F401
+from app.tasks.sync_proposicoes import sync_proposicoes_task  # noqa: F401
+from app.tasks.sync_votacoes import sync_votacoes_task  # noqa: F401
+from app.tasks.gerar_comparativos import gerar_comparativos_task  # noqa: F401
+from app.tasks.generate_embeddings import (  # noqa: F401
+    generate_embeddings_task,
+    reindex_all_embeddings_task,
+)
+from app.tasks.dispatch_webhooks import dispatch_webhooks_task  # noqa: F401
+from app.tasks.notificar_eleitores import (  # noqa: F401
+    notificar_eleitores_task,
+    notificar_comparativo_task,
+)
 
 # Celery CLI expects `app.tasks.celery` or `app.tasks.app` when invoked with -A app.tasks
 celery = celery_app
