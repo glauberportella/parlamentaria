@@ -10,6 +10,7 @@ import hashlib
 from typing import Sequence
 
 from google import genai
+from google.genai.types import HttpOptions
 
 from app.config import settings
 from app.logging import get_logger
@@ -30,8 +31,11 @@ class EmbeddingService:
         api_key: str | None = None,
     ) -> None:
         self._model = model or settings.embedding_model
+        # text-embedding-004 is only available on API v1, not v1beta
+        # (which is the default in google-genai SDK).
         self._client = genai.Client(
             api_key=api_key or settings.google_api_key,
+            http_options=HttpOptions(api_version="v1"),
         )
 
     async def embed_text(self, text: str) -> list[float]:
