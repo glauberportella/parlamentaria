@@ -38,14 +38,14 @@ async def buscar_proposicoes(
         async with CamaraClient() as client:
             filtros: dict = {}
             if tema:
-                filtros["tema"] = tema
+                filtros["keywords"] = tema
             if tipo:
-                filtros["siglaTipo"] = tipo
+                filtros["sigla_tipo"] = tipo
             if ano > 0:
                 filtros["ano"] = ano
             filtros["pagina"] = pagina
             filtros["itens"] = min(itens, 100)
-            filtros["ordenarPor"] = "id"
+            filtros["ordenar_por"] = "id"
             filtros["ordem"] = "DESC"
 
             proposicoes = await client.listar_proposicoes(**filtros)
@@ -247,9 +247,9 @@ async def buscar_deputado(
             if nome:
                 filtros["nome"] = nome
             if uf:
-                filtros["siglaUf"] = uf
+                filtros["sigla_uf"] = uf
             if partido:
-                filtros["siglaPartido"] = partido
+                filtros["sigla_partido"] = partido
 
             deputados = await client.listar_deputados(**filtros)
 
@@ -378,8 +378,8 @@ async def buscar_eventos_pauta(dias: int = 7) -> dict:
 
         async with CamaraClient() as client:
             eventos = await client.listar_eventos(
-                dataInicio=data_inicio,
-                dataFim=data_fim,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
             )
 
             items = []
