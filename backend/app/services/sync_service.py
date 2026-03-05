@@ -93,6 +93,8 @@ class SyncService:
                             error=str(e),
                         )
                         stats["errors"] += 1
+                        # Rollback to recover session after IntegrityError
+                        await self.proposicao_service.session.rollback()
 
         logger.info("sync.proposicoes.complete", **stats)
         return stats
@@ -142,6 +144,8 @@ class SyncService:
                             error=str(e),
                         )
                         stats["errors"] += 1
+                        # Rollback to recover session after IntegrityError
+                        await self.votacao_service.session.rollback()
 
         logger.info("sync.votacoes.complete", **stats)
         return stats
