@@ -184,6 +184,7 @@ class CamaraClient:
         numero: int | None = None,
         ano: int | None = None,
         cod_tema: int | None = None,
+        keywords: str | None = None,
         pagina: int = 1,
         itens: int = 15,
         ordenar_por: str = "id",
@@ -196,6 +197,7 @@ class CamaraClient:
             numero: Proposition number.
             ano: Year of presentation.
             cod_tema: Theme code from /referencias/proposicoes/codTema.
+            keywords: Free-text search on the proposition ementa/description.
             pagina: Page number (1-indexed).
             itens: Items per page (max 100).
             ordenar_por: Sort field.
@@ -209,6 +211,7 @@ class CamaraClient:
             "numero": numero,
             "ano": ano,
             "codTema": cod_tema,
+            "keywords": keywords,
             "pagina": pagina,
             "itens": itens,
             "ordenarPor": ordenar_por,
