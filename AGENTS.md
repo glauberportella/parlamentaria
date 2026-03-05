@@ -887,7 +887,7 @@ O sistema usa **RAG (Retrieval-Augmented Generation)** para permitir buscas sem�
 **Arquitetura RAG:**
 
 ```
-Sync API Câmara → Proposição (DB) → Chunking → Embedding → pgvector (HNSW index)
+Sync API Câmara → Proposição (DB) → Chunking → Embedding → pgvector (cosine search)
                                                                      ↓
 Eleitor pergunta → Embedding da query → Cosine similarity → Top-K results → Agente responde
 ```
@@ -925,7 +925,7 @@ Eleitor pergunta → Embedding da query → Cosine similarity → Top-K results 
 - `RAG_SIMILARITY_THRESHOLD` — Threshold mínimo de similaridade (padrão: `0.3`)
 - `RAG_MAX_RESULTS` — Máximo de resultados por busca (padrão: `10`)
 
-**Índice pgvector**: HNSW com `vector_cosine_ops` (m=16, ef_construction=64) para ANN eficiente.
+**Índice pgvector**: Busca exata por cosine distance (sem índice ANN). pgvector HNSW suporta máx. 2000 dims, e o `gemini-embedding-001` gera 3072 dims. Para o volume do projeto (milhares de chunks), busca exata é suficiente. Para escalar, considerar IVFFlat ou redução de dimensões via `output_dimensionality`.
 
 ### 9.9 Módulo: Feedback ao Eleitor
 
