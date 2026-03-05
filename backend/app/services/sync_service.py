@@ -74,18 +74,19 @@ class SyncService:
 
                 for prop_api in proposicoes:
                     try:
-                        api_data = {
-                            "id": prop_api.id,
-                            "tipo": prop_api.siglaTipo,
-                            "numero": prop_api.numero,
-                            "ano": prop_api.ano,
-                            "ementa": prop_api.ementa or "",
-                            "data_apresentacao": getattr(prop_api, "dataApresentacao", None),
-                            "situacao": "Em tramitação",
-                        }
-                        result = await self.proposicao_service.upsert_from_api(api_data)
-                        # Heuristic: if it has ultima_sincronizacao from before, it's an update
-                        stats["created"] += 1  # simplified — upsert handles the logic
+                        async with self.session.begin_nested():
+                            api_data = {
+                                "id": prop_api.id,
+                                "tipo": prop_api.siglaTipo,
+                                "numero": prop_api.numero,
+                                "ano": prop_api.ano,
+                                "ementa": prop_api.ementa or "",
+                                "data_apresentacao": getattr(prop_api, "dataApresentacao", None),
+                                "situacao": "Em tramitação",
+                            }
+                            await self.proposicao_service.upsert_from_api(api_data)
+                        # Savepoint released — upsert succeeded
+                        stats["created"] += 1
                     except Exception as e:
                         logger.error(
                             "sync.proposicao.upsert_error",
@@ -93,8 +94,7 @@ class SyncService:
                             error=str(e),
                         )
                         stats["errors"] += 1
-                        # Rollback to recover session after IntegrityError
-                        await self.proposicao_service.session.rollback()
+                        # Savepoint rolled back automatically — session still usable
 
         logger.info("sync.proposicoes.complete", **stats)
         return stats
@@ -130,12 +130,13 @@ class SyncService:
 
                 for vot_api in votacoes:
                     try:
-                        api_data = {
-                            "id": vot_api.id,
-                            "data": vot_api.data if hasattr(vot_api, "data") else None,
-                            "descricao": vot_api.descricao or "",
-                        }
-                        await self.votacao_service.upsert_from_api(api_data)
+                        async with self.session.begin_nested():
+                            api_data = {
+                                "id": vot_api.id,
+                                "data": vot_api.data if hasattr(vot_api, "data") else None,
+                                "descricao": vot_api.descricao or "",
+                            }
+                            await self.votacao_service.upsert_from_api(api_data)
                         stats["created"] += 1
                     except Exception as e:
                         logger.error(
@@ -144,8 +145,7 @@ class SyncService:
                             error=str(e),
                         )
                         stats["errors"] += 1
-                        # Rollback to recover session after IntegrityError
-                        await self.votacao_service.session.rollback()
+                        # Savepoint rolled back automatically — session still usable
 
         logger.info("sync.votacoes.complete", **stats)
         return stats

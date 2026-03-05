@@ -27,7 +27,11 @@ def sync_proposicoes_task(self, ano: int | None = None, sigla_tipo: str | None =
             from app.services.sync_service import SyncService
             service = SyncService(session)
             stats = await service.sync_proposicoes(ano=ano, sigla_tipo=sigla_tipo)
-            await session.commit()
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logger.warning("task.sync_proposicoes.commit_failed_rollback")
             return stats
 
     try:
