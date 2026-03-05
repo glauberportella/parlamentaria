@@ -20,7 +20,7 @@ class Proposicao(Base):
     ano: Mapped[int] = mapped_column(Integer, nullable=False)
     ementa: Mapped[str] = mapped_column(Text, nullable=False)
     texto_completo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    data_apresentacao: Mapped[date] = mapped_column(Date, nullable=False)
+    data_apresentacao: Mapped[date | None] = mapped_column(Date, nullable=True)
     situacao: Mapped[str] = mapped_column(String(200), nullable=False, default="Em tramitação")
     temas: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
     autores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
