@@ -125,12 +125,13 @@ class RAGService:
         # Process all chunks
         for chunk_type, content in chunks_to_process:
             try:
-                result = await self._upsert_chunk(
-                    proposicao_id=proposicao.id,
-                    chunk_type=chunk_type,
-                    content=content,
-                    metadata=metadata,
-                )
+                async with self.session.begin_nested():
+                    result = await self._upsert_chunk(
+                        proposicao_id=proposicao.id,
+                        chunk_type=chunk_type,
+                        content=content,
+                        metadata=metadata,
+                    )
                 if result == "created":
                     stats["created"] += 1
                 else:

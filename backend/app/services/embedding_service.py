@@ -1,6 +1,6 @@
 """Service for generating text embeddings via Google Generative AI.
 
-Uses the gemini-embedding-001 model (768 dimensions) from Google's API,
+Uses the gemini-embedding-001 model (3072 dimensions) from Google's API,
 which is the same API key used for Gemini agents.
 """
 

@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     # RAG / Embeddings
     embedding_model: str = "gemini-embedding-001"
-    embedding_dimensions: int = 768
+    embedding_dimensions: int = 3072
     rag_similarity_threshold: float = 0.3
     rag_max_results: int = 10
 
