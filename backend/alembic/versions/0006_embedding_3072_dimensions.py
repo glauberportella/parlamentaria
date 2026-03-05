@@ -4,14 +4,14 @@ gemini-embedding-001 produces 3072-dimensional vectors, not 768 like
 the deprecated text-embedding-004.
 
 Revision ID: 0006
-Revises: 0005
+Revises: 0005_nullable_data_apresentacao
 """
 
 from alembic import op
 
 # revision identifiers
 revision = "0006"
-down_revision = "0005"
+down_revision = "0005_nullable_data_apresentacao"
 branch_labels = None
 depends_on = None
 
