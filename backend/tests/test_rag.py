@@ -31,13 +31,13 @@ class TestEmbeddingService:
 
     @patch("app.services.embedding_service.genai")
     def test_init_creates_client(self, mock_genai):
-        """EmbeddingService creates a genai client with API key and v1 API."""
+        """EmbeddingService creates a genai client with API key and v1beta API."""
         from app.services.embedding_service import EmbeddingService, HttpOptions
 
         service = EmbeddingService(api_key="test-key")
         mock_genai.Client.assert_called_once_with(
             api_key="test-key",
-            http_options=HttpOptions(api_version="v1"),
+            http_options=HttpOptions(api_version="v1beta"),
         )
 
     @patch("app.services.embedding_service.genai")
@@ -304,7 +304,7 @@ class TestRAGService:
         chunk.metadata_extra = json.dumps({
             "tipo": "PL", "numero": 100, "ano": 2024, "temas": ["economia"],
         })
-        chunk.embedding_model = "text-embedding-004"
+        chunk.embedding_model = "gemini-embedding-001"
 
         mock_repo.similarity_search = AsyncMock(return_value=[(chunk, 0.15)])
 
@@ -331,14 +331,14 @@ class TestRAGService:
         chunk1.chunk_type = "ementa"
         chunk1.content = "Ementa text"
         chunk1.metadata_extra = json.dumps({"tipo": "PL", "numero": 100, "ano": 2024, "temas": []})
-        chunk1.embedding_model = "text-embedding-004"
+        chunk1.embedding_model = "gemini-embedding-001"
 
         chunk2 = MagicMock()
         chunk2.proposicao_id = 12345
         chunk2.chunk_type = "resumo_ia"
         chunk2.content = "Resumo text"
         chunk2.metadata_extra = json.dumps({"tipo": "PL", "numero": 100, "ano": 2024, "temas": []})
-        chunk2.embedding_model = "text-embedding-004"
+        chunk2.embedding_model = "gemini-embedding-001"
 
         mock_repo.similarity_search = AsyncMock(return_value=[
             (chunk1, 0.2),  # similarity = 0.8
@@ -423,7 +423,7 @@ class TestRAGTools:
                 "content": "PL 100/2024 sobre educação",
                 "similarity": 0.92,
                 "metadata": {"tipo": "PL", "numero": 100, "ano": 2024, "temas": ["educação"]},
-                "embedding_model": "text-embedding-004",
+                "embedding_model": "gemini-embedding-001",
             }
         ])
         MockRAGService.return_value = mock_rag
@@ -707,8 +707,8 @@ class TestRAGConfig:
     """Test RAG-related configuration."""
 
     def test_embedding_model_default(self):
-        """Default embedding model is text-embedding-004."""
-        assert settings.embedding_model == "text-embedding-004"
+        """Default embedding model is gemini-embedding-001."""
+        assert settings.embedding_model == "gemini-embedding-001"
 
     def test_embedding_dimensions_default(self):
         """Default embedding dimensions is 768."""

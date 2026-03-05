@@ -1,6 +1,6 @@
 """Service for generating text embeddings via Google Generative AI.
 
-Uses the text-embedding-004 model (768 dimensions) from Google's API,
+Uses the gemini-embedding-001 model (768 dimensions) from Google's API,
 which is the same API key used for Gemini agents.
 """
 
@@ -31,11 +31,10 @@ class EmbeddingService:
         api_key: str | None = None,
     ) -> None:
         self._model = model or settings.embedding_model
-        # text-embedding-004 is only available on API v1, not v1beta
-        # (which is the default in google-genai SDK).
+        # gemini-embedding-001 is available on v1beta only.
         self._client = genai.Client(
             api_key=api_key or settings.google_api_key,
-            http_options=HttpOptions(api_version="v1"),
+            http_options=HttpOptions(api_version="v1beta"),
         )
 
     async def embed_text(self, text: str) -> list[float]:
