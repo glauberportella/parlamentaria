@@ -34,7 +34,11 @@ def dispatch_webhooks_task(evento: str, payload: dict) -> dict:
             from app.services.publicacao_service import PublicacaoService
             service = PublicacaoService(session)
             stats = await service.dispatch_event(evento, payload)
-            await session.commit()
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logger.warning("task.dispatch_webhooks.commit_failed_rollback")
             return stats
 
     try:

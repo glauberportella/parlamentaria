@@ -211,6 +211,7 @@ class TestGerarComparativosTask:
         from app.tasks.gerar_comparativos import gerar_comparativos_task
 
         mock_session = AsyncMock()
+        mock_session.begin_nested = MagicMock(return_value=AsyncMock())
         mock_ctx = AsyncMock()
         mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
         mock_ctx.__aexit__ = AsyncMock(return_value=False)

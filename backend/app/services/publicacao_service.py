@@ -361,10 +361,19 @@ class PublicacaoService:
         stats = {"total": len(webhooks), "success": 0, "failed": 0}
 
         for webhook in webhooks:
-            ok = await self.dispatch_webhook(webhook, payload)
-            if ok:
-                stats["success"] += 1
-            else:
+            try:
+                async with self.session.begin_nested():
+                    ok = await self.dispatch_webhook(webhook, payload)
+                if ok:
+                    stats["success"] += 1
+                else:
+                    stats["failed"] += 1
+            except Exception as e:
+                logger.error(
+                    "publicacao.event.dispatch_error",
+                    webhook_id=str(webhook.id),
+                    error=str(e),
+                )
                 stats["failed"] += 1
 
         logger.info("publicacao.event.dispatched", evento=evento, **stats)

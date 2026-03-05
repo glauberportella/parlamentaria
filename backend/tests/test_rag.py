@@ -198,6 +198,7 @@ class TestRAGService:
         from app.services.rag_service import RAGService
 
         session = AsyncMock()
+        session.begin_nested = MagicMock(return_value=AsyncMock())
         service = RAGService(session, embedding_service=mock_embedding_service)
         service.repo = mock_repo
 
@@ -217,6 +218,7 @@ class TestRAGService:
         mock_repo.find_by_proposicao_and_type_and_hash = AsyncMock(return_value=MagicMock())
 
         session = AsyncMock()
+        session.begin_nested = MagicMock(return_value=AsyncMock())
         service = RAGService(session, embedding_service=mock_embedding_service)
         service.repo = mock_repo
 
@@ -251,6 +253,7 @@ class TestRAGService:
         prop.analises = [analise]
 
         session = AsyncMock()
+        session.begin_nested = MagicMock(return_value=AsyncMock())
         service = RAGService(session, embedding_service=mock_embedding_service)
         service.repo = mock_repo
 
@@ -282,6 +285,7 @@ class TestRAGService:
         prop.analises = []
 
         session = AsyncMock()
+        session.begin_nested = MagicMock(return_value=AsyncMock())
         service = RAGService(session, embedding_service=failing_service)
         service.repo = mock_repo
 
@@ -711,8 +715,8 @@ class TestRAGConfig:
         assert settings.embedding_model == "gemini-embedding-001"
 
     def test_embedding_dimensions_default(self):
-        """Default embedding dimensions is 768."""
-        assert settings.embedding_dimensions == 768
+        """Default embedding dimensions is 3072."""
+        assert settings.embedding_dimensions == 3072
 
     def test_rag_similarity_threshold_default(self):
         """Default similarity threshold is 0.3."""

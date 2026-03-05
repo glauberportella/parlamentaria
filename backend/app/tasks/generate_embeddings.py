@@ -66,7 +66,11 @@ def generate_embeddings_task(
                     }
 
                 stats = await rag_service.index_proposicao(proposicao)
-                await session.commit()
+                try:
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    logger.warning("task.generate_embeddings.commit_failed_rollback")
                 return {"status": "success", "proposicao_id": proposicao_id, **stats}
 
             else:
@@ -75,7 +79,11 @@ def generate_embeddings_task(
                     limit=batch_size,
                     offset=offset,
                 )
-                await session.commit()
+                try:
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    logger.warning("task.generate_embeddings.batch_commit_failed_rollback")
                 return {"status": "success", **stats}
 
     try:
@@ -130,7 +138,11 @@ def reindex_all_embeddings_task(self, batch_size: int = 100) -> dict:
                 all_stats["skipped"] += batch_stats["skipped"]
                 all_stats["errors"] += batch_stats["errors"]
                 all_stats["proposicoes_processed"] += batch_stats["proposicoes_processed"]
-                await session.commit()
+                try:
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    logger.warning("task.reindex_all.batch_commit_failed_rollback", offset=offset)
 
             return {"status": "success", **all_stats}
 
