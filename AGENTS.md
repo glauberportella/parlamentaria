@@ -896,10 +896,10 @@ Eleitor pergunta → Embedding da query → Cosine similarity → Top-K results 
 
 | Componente | Arquivo | Responsabilidade |
 |---|---|---|
-| **EmbeddingService** | `embedding_service.py` | Wrapper do Google `gemini-embedding-001` (768 dims) |
+| **EmbeddingService** | `embedding_service.py` | Wrapper do Google `gemini-embedding-001` (3072 dims) |
 | **RAGService** | `rag_service.py` | Indexação (chunking + embed + upsert) e busca semântica |
 | **DocumentChunkRepository** | `document_chunk_repo.py` | Queries pgvector com `cosine_distance` operator |
-| **DocumentChunk** | `document_chunk.py` | Modelo SQLAlchemy com coluna `Vector(768)` |
+| **DocumentChunk** | `document_chunk.py` | Modelo SQLAlchemy com coluna `Vector(3072)` |
 | **rag_tools.py** | `agents/parlamentar/tools/rag_tools.py` | FunctionTools do agente: `busca_semantica_proposicoes`, `obter_estatisticas_rag` |
 | **generate_embeddings.py** | `tasks/generate_embeddings.py` | Celery tasks: embedding pós-sync + reindex diário (3 AM) |
 
@@ -921,7 +921,7 @@ Eleitor pergunta → Embedding da query → Cosine similarity → Top-K results 
 
 **Configuração** (variáveis de ambiente / `config.py`):
 - `EMBEDDING_MODEL` — Modelo de embeddings (padrão: `gemini-embedding-001`)
-- `EMBEDDING_DIMENSIONS` — Dimensões do vetor (padrão: `768`)
+- `EMBEDDING_DIMENSIONS` — Dimensões do vetor (padrão: `3072`)
 - `RAG_SIMILARITY_THRESHOLD` — Threshold mínimo de similaridade (padrão: `0.3`)
 - `RAG_MAX_RESULTS` — Máximo de resultados por busca (padrão: `10`)
 
@@ -1026,7 +1026,7 @@ WEBHOOK_CIRCUIT_BREAKER_THRESHOLD=5  # Falhas para desativar assinatura
 
 # RAG / Embeddings (pgvector)
 EMBEDDING_MODEL=gemini-embedding-001   # Modelo Google Embeddings
-EMBEDDING_DIMENSIONS=768             # Dimensões do vetor
+EMBEDDING_DIMENSIONS=3072            # Dimensões do vetor
 RAG_SIMILARITY_THRESHOLD=0.3         # Threshold mínimo cosine similarity
 RAG_MAX_RESULTS=10                   # Máximo de resultados por busca semântica
 

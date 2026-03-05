@@ -63,14 +63,15 @@ def gerar_comparativos_task() -> dict:
                     continue
 
                 try:
-                    resultado = "APROVADO" if votacao.aprovacao else "REJEITADO"
-                    comparativo = await service.gerar_comparativo(
-                        proposicao_id=votacao.proposicao_id,
-                        votacao_camara_id=votacao.id,
-                        resultado_camara=resultado,
-                        votos_camara_sim=votacao.votos_sim or 0,
-                        votos_camara_nao=votacao.votos_nao or 0,
-                    )
+                    async with session.begin_nested():
+                        resultado = "APROVADO" if votacao.aprovacao else "REJEITADO"
+                        comparativo = await service.gerar_comparativo(
+                            proposicao_id=votacao.proposicao_id,
+                            votacao_camara_id=votacao.id,
+                            resultado_camara=resultado,
+                            votos_camara_sim=votacao.votos_sim or 0,
+                            votos_camara_nao=votacao.votos_nao or 0,
+                        )
                     stats["generated"] += 1
 
                     # Fetch proposicao details for notifications
@@ -142,7 +143,11 @@ def gerar_comparativos_task() -> dict:
                     )
                     stats["errors"] += 1
 
-            await session.commit()
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logger.warning("task.gerar_comparativos.commit_failed_rollback")
             return stats
 
     try:
