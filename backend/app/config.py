@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # RAG / Embeddings
-    embedding_model: str = "text-embedding-004"
+    embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 768
     rag_similarity_threshold: float = 0.3
     rag_max_results: int = 10

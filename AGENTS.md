@@ -55,7 +55,7 @@
 | **Containerização**   | Docker + Docker Compose             | Ambiente reproduzível dev/prod                            |
 | **CI/CD**             | GitHub Actions                      | Lint, test, build, deploy automatizado                    |
 | **Linting**           | Ruff                                | Padrão de código consistente (Python-only)                |
-| **RAG / Embeddings**  | pgvector + Google text-embedding-004 | Busca semântica sobre proposições sincronizadas           |
+| **RAG / Embeddings**  | pgvector + Google gemini-embedding-001 | Busca semântica sobre proposições sincronizadas           |
 
 ---
 
@@ -288,7 +288,7 @@ parlamentaria/
 │   │   │   ├── eleitor_service.py
 │   │   │   ├── analise_service.py   # Orquestra análise IA de proposições
 │   │   │   ├── sync_service.py      # Sincronização com API da Câmara
-│   │   │   ├── embedding_service.py  # Geração de embeddings (Google text-embedding-004)
+│   │   │   ├── embedding_service.py  # Geração de embeddings (Google gemini-embedding-001)
 │   │   │   ├── rag_service.py        # Indexação e busca semântica RAG
 │   │   │   ├── publicacao_service.py # Publicação RSS + dispatch webhooks
 │   │   │   └── comparativo_service.py # Comparativo voto popular vs real
@@ -896,7 +896,7 @@ Eleitor pergunta → Embedding da query → Cosine similarity → Top-K results 
 
 | Componente | Arquivo | Responsabilidade |
 |---|---|---|
-| **EmbeddingService** | `embedding_service.py` | Wrapper do Google `text-embedding-004` (768 dims) |
+| **EmbeddingService** | `embedding_service.py` | Wrapper do Google `gemini-embedding-001` (768 dims) |
 | **RAGService** | `rag_service.py` | Indexação (chunking + embed + upsert) e busca semântica |
 | **DocumentChunkRepository** | `document_chunk_repo.py` | Queries pgvector com `cosine_distance` operator |
 | **DocumentChunk** | `document_chunk.py` | Modelo SQLAlchemy com coluna `Vector(768)` |
@@ -920,7 +920,7 @@ Eleitor pergunta → Embedding da query → Cosine similarity → Top-K results 
 4. Re-index completo agendado via Celery Beat às 3:00 AM diariamente.
 
 **Configuração** (variáveis de ambiente / `config.py`):
-- `EMBEDDING_MODEL` — Modelo de embeddings (padrão: `text-embedding-004`)
+- `EMBEDDING_MODEL` — Modelo de embeddings (padrão: `gemini-embedding-001`)
 - `EMBEDDING_DIMENSIONS` — Dimensões do vetor (padrão: `768`)
 - `RAG_SIMILARITY_THRESHOLD` — Threshold mínimo de similaridade (padrão: `0.3`)
 - `RAG_MAX_RESULTS` — Máximo de resultados por busca (padrão: `10`)
@@ -1025,7 +1025,7 @@ WEBHOOK_MAX_RETRIES=3                # Tentativas de reenvio
 WEBHOOK_CIRCUIT_BREAKER_THRESHOLD=5  # Falhas para desativar assinatura
 
 # RAG / Embeddings (pgvector)
-EMBEDDING_MODEL=text-embedding-004   # Modelo Google Embeddings
+EMBEDDING_MODEL=gemini-embedding-001   # Modelo Google Embeddings
 EMBEDDING_DIMENSIONS=768             # Dimensões do vetor
 RAG_SIMILARITY_THRESHOLD=0.3         # Threshold mínimo cosine similarity
 RAG_MAX_RESULTS=10                   # Máximo de resultados por busca semântica

@@ -18,7 +18,7 @@ down_revision: Union[str, None] = "0001_initial"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-EMBEDDING_DIMENSIONS = 768  # text-embedding-004 default
+EMBEDDING_DIMENSIONS = 768  # gemini-embedding-001 default
 
 
 def upgrade() -> None:
