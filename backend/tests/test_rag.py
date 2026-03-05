@@ -31,11 +31,14 @@ class TestEmbeddingService:
 
     @patch("app.services.embedding_service.genai")
     def test_init_creates_client(self, mock_genai):
-        """EmbeddingService creates a genai client with API key."""
-        from app.services.embedding_service import EmbeddingService
+        """EmbeddingService creates a genai client with API key and v1 API."""
+        from app.services.embedding_service import EmbeddingService, HttpOptions
 
         service = EmbeddingService(api_key="test-key")
-        mock_genai.Client.assert_called_once_with(api_key="test-key")
+        mock_genai.Client.assert_called_once_with(
+            api_key="test-key",
+            http_options=HttpOptions(api_version="v1"),
+        )
 
     @patch("app.services.embedding_service.genai")
     async def test_embed_text_calls_api(self, mock_genai):
