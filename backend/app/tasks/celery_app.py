@@ -19,6 +19,7 @@ celery_app = Celery(
         "app.tasks.dispatch_webhooks",
         "app.tasks.gerar_comparativos",
         "app.tasks.generate_embeddings",
+        "app.tasks.generate_analysis",
     ],
 )
 

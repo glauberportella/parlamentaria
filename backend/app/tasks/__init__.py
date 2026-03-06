@@ -11,6 +11,10 @@ from app.tasks.generate_embeddings import (  # noqa: F401
     generate_embeddings_task,
     reindex_all_embeddings_task,
 )
+from app.tasks.generate_analysis import (  # noqa: F401
+    generate_analysis_task,
+    reanalyze_all_task,
+)
 from app.tasks.dispatch_webhooks import dispatch_webhooks_task  # noqa: F401
 from app.tasks.notificar_eleitores import (  # noqa: F401
     notificar_eleitores_task,
