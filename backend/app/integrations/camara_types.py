@@ -173,6 +173,32 @@ class ItemPautaAPI(BaseModel):
     situacao: str | None = None
 
 
+# --- Partidos ---
+
+
+class PartidoResumoAPI(BaseModel):
+    """Summary political party from listing endpoint."""
+
+    id: int
+    sigla: str
+    nome: str
+    uri: str | None = None
+
+
+class PartidoDetalhadoAPI(BaseModel):
+    """Detailed political party from single endpoint."""
+
+    id: int
+    sigla: str
+    nome: str
+    uri: str | None = None
+    status: dict | None = None
+    numeroEleitoral: int | None = None
+    urlLogo: str | None = None
+    urlWebSite: str | None = None
+    urlFacebook: str | None = None
+
+
 # --- Referências ---
 
 

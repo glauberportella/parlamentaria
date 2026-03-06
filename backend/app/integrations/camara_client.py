@@ -21,6 +21,8 @@ from app.integrations.camara_types import (
     EventoResumoAPI,
     ItemPautaAPI,
     OrientacaoAPI,
+    PartidoDetalhadoAPI,
+    PartidoResumoAPI,
     ProposicaoDetalhadaAPI,
     ProposicaoResumoAPI,
     TemaAPI,
@@ -452,3 +454,46 @@ class CamaraClient:
         """
         dados = await self._get_dados(f"/eventos/{evento_id}/pauta")
         return [ItemPautaAPI(**item) for item in dados]
+
+    # ------------------------------------------------------------------
+    # Partidos
+    # ------------------------------------------------------------------
+
+    async def listar_partidos(
+        self,
+        pagina: int = 1,
+        itens: int = 100,
+        ordem: str = "ASC",
+        ordenar_por: str = "sigla",
+    ) -> list[PartidoResumoAPI]:
+        """List political parties.
+
+        Args:
+            pagina: Page number.
+            itens: Items per page (max 100).
+            ordem: Sort order.
+            ordenar_por: Sort field.
+
+        Returns:
+            List of party summaries.
+        """
+        params = self._clean_params({
+            "pagina": pagina,
+            "itens": itens,
+            "ordem": ordem,
+            "ordenarPor": ordenar_por,
+        })
+        dados = await self._get_dados("/partidos", params)
+        return [PartidoResumoAPI(**item) for item in dados]
+
+    async def obter_partido(self, partido_id: int) -> PartidoDetalhadoAPI:
+        """Get detailed information about a political party.
+
+        Args:
+            partido_id: Party ID.
+
+        Returns:
+            Detailed party data.
+        """
+        dados = await self._get_dados_single(f"/partidos/{partido_id}")
+        return PartidoDetalhadoAPI(**dados)
