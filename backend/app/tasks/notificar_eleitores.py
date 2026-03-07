@@ -14,6 +14,28 @@ from app.logging import get_logger
 logger = get_logger(__name__)
 
 
+async def _get_telegram_send_fn():
+    """Create a send function using the TelegramAdapter.
+
+    Returns:
+        Async callable(chat_id, text) or None if Telegram is not configured.
+    """
+    from app.config import settings
+
+    if not settings.telegram_bot_token:
+        logger.warning("notification.telegram_not_configured")
+        return None
+
+    from channels.telegram.bot import TelegramAdapter
+
+    adapter = TelegramAdapter(token=settings.telegram_bot_token)
+
+    async def send(chat_id: str, text: str) -> None:
+        await adapter.send_message(chat_id, text)
+
+    return send
+
+
 @celery_app.task(name="app.tasks.notificar_eleitores.notificar_eleitores_task")
 def notificar_eleitores_task(
     proposicao_id: int,
@@ -39,6 +61,8 @@ def notificar_eleitores_task(
     logger.info("task.notificar_eleitores.start", proposicao_id=proposicao_id)
 
     async def _run() -> dict:
+        send_fn = await _get_telegram_send_fn()
+
         async with get_async_session() as session:
             from app.services.notification_service import NotificationService
 
@@ -50,7 +74,7 @@ def notificar_eleitores_task(
                 ano=ano,
                 ementa=ementa,
                 temas=temas or [],
-                send_fn=None,  # Default: dry run (log only, no channel adapter in Celery context)
+                send_fn=send_fn,
             )
             return stats
 
@@ -94,6 +118,8 @@ def notificar_comparativo_task(
     )
 
     async def _run() -> dict:
+        send_fn = await _get_telegram_send_fn()
+
         async with get_async_session() as session:
             from app.services.notification_service import NotificationService
 
@@ -106,7 +132,7 @@ def notificar_comparativo_task(
                 resultado_camara=resultado_camara,
                 percentual_sim_popular=percentual_sim_popular,
                 alinhamento=alinhamento,
-                send_fn=None,  # Dry run in Celery context
+                send_fn=send_fn,
             )
             return stats
 

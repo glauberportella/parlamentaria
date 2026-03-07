@@ -53,4 +53,52 @@ def sync_proposicoes_task(self, ano: int | None = None, sigla_tipo: str | None =
         generate_analysis_task.delay()
         logger.info("task.sync_proposicoes.triggered_analysis")
 
+    # Chain: notify voters about newly synced propositions
+    if result.get("created", 0) > 0:
+        _trigger_notifications_for_new_proposicoes()
+
     return result
+
+
+def _trigger_notifications_for_new_proposicoes() -> None:
+    """Trigger voter notifications for recently synced propositions.
+
+    Queries propositions synced in the last hour and dispatches a
+    notification task for each one that has themes defined.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    async def _query_and_dispatch() -> None:
+        async with get_async_session() as session:
+            from sqlalchemy import select
+            from app.domain.proposicao import Proposicao
+            from app.tasks.notificar_eleitores import notificar_eleitores_task
+
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+            stmt = select(Proposicao).where(
+                Proposicao.ultima_sincronizacao >= cutoff
+            )
+            result = await session.execute(stmt)
+            proposicoes = result.scalars().all()
+
+            for prop in proposicoes:
+                temas = prop.temas if prop.temas else []
+                if temas:
+                    notificar_eleitores_task.delay(
+                        proposicao_id=prop.id,
+                        temas=temas,
+                        tipo=prop.tipo or "PL",
+                        numero=prop.numero or 0,
+                        ano=prop.ano or 0,
+                        ementa=prop.ementa or "",
+                    )
+                    logger.info(
+                        "task.sync_proposicoes.triggered_notification",
+                        proposicao_id=prop.id,
+                    )
+
+    import asyncio
+    try:
+        asyncio.get_event_loop().run_until_complete(_query_and_dispatch())
+    except RuntimeError:
+        asyncio.run(_query_and_dispatch())
