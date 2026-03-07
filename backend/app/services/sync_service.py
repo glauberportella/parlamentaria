@@ -81,13 +81,29 @@ class SyncService:
                 for prop_api in proposicoes:
                     try:
                         async with self.session.begin_nested():
+                            # Parse date string from API into date object
+                            data_apresentacao = None
+                            raw_date = getattr(prop_api, "dataApresentacao", None)
+                            if raw_date:
+                                if isinstance(raw_date, str):
+                                    try:
+                                        data_apresentacao = datetime.fromisoformat(raw_date).date()
+                                    except (ValueError, TypeError):
+                                        logger.warning(
+                                            "sync.proposicao.date_parse_error",
+                                            id=prop_api.id,
+                                            raw_date=raw_date,
+                                        )
+                                else:
+                                    data_apresentacao = raw_date
+
                             api_data = {
                                 "id": prop_api.id,
                                 "tipo": prop_api.siglaTipo,
                                 "numero": prop_api.numero,
                                 "ano": prop_api.ano,
                                 "ementa": prop_api.ementa or "",
-                                "data_apresentacao": getattr(prop_api, "dataApresentacao", None),
+                                "data_apresentacao": data_apresentacao,
                                 "situacao": "Em tramitação",
                             }
                             await self.proposicao_service.upsert_from_api(api_data)
@@ -137,9 +153,23 @@ class SyncService:
                 for vot_api in votacoes:
                     try:
                         async with self.session.begin_nested():
+                            # Parse date string from API into datetime
+                            data_votacao = None
+                            if hasattr(vot_api, "data") and vot_api.data:
+                                try:
+                                    data_votacao = datetime.fromisoformat(vot_api.data)
+                                    if data_votacao.tzinfo is None:
+                                        data_votacao = data_votacao.replace(tzinfo=timezone.utc)
+                                except (ValueError, TypeError):
+                                    logger.warning(
+                                        "sync.votacao.date_parse_error",
+                                        id=vot_api.id,
+                                        raw_date=vot_api.data,
+                                    )
+
                             api_data = {
                                 "id": vot_api.id,
-                                "data": vot_api.data if hasattr(vot_api, "data") else None,
+                                "data": data_votacao,
                                 "descricao": vot_api.descricao or "",
                             }
                             await self.votacao_service.upsert_from_api(api_data)

@@ -24,11 +24,14 @@ def _make_proposicao_api(id_, sigla_tipo="PL", numero=1, ano=2024, ementa="Test"
     return mock
 
 
-def _make_votacao_api(id_, descricao="Votação teste"):
-    """Create a mock Câmara API vote object."""
+def _make_votacao_api(id_, descricao="Votação teste", data_str="2024-06-01"):
+    """Create a mock Câmara API vote object.
+
+    API returns data as a string (e.g., '2024-06-01'), not datetime.
+    """
     mock = MagicMock()
     mock.id = id_
-    mock.data = datetime(2024, 6, 1, tzinfo=timezone.utc)
+    mock.data = data_str
     mock.descricao = descricao
     return mock
 
@@ -107,3 +110,31 @@ class TestSyncVotacoes:
 
         stats = await service.sync_votacoes(paginas=1)
         assert stats["errors"] >= 1
+
+    @patch("app.services.sync_service.CamaraClient")
+    async def test_sync_votacoes_parses_date_string(self, MockClient, service):
+        """API returns date as string like '2026-03-04'; sync must parse it."""
+        mock_client = AsyncMock()
+        vot = _make_votacao_api("500-1", data_str="2026-03-04")
+        mock_client.listar_votacoes = AsyncMock(side_effect=[[vot], []])
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_client
+
+        stats = await service.sync_votacoes(paginas=2)
+        assert stats["total_fetched"] == 1
+        assert stats["errors"] == 0
+
+    @patch("app.services.sync_service.CamaraClient")
+    async def test_sync_votacoes_handles_none_date(self, MockClient, service):
+        """votação with None date should error gracefully (data is NOT NULL)."""
+        mock_client = AsyncMock()
+        vot = _make_votacao_api("600-1", data_str=None)
+        mock_client.listar_votacoes = AsyncMock(side_effect=[[vot], []])
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_client
+
+        stats = await service.sync_votacoes(paginas=2)
+        assert stats["total_fetched"] == 1
+        assert stats["errors"] == 1
