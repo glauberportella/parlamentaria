@@ -80,26 +80,22 @@ Assinar o feed da Parlamentaria é uma demonstração concreta de que **a vontad
 
 ## ⚙️ Como funciona
 
-```
-  Eleitor                                                      Parlamentar
-  (Telegram)                                                   (RSS / Webhook)
-     │                                                              ▲
-     │  "O que é o PL 1234?"                                        │
-     ▼                                                              │
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         Parlamentaria                                       │
-│                                                                             │
-│  ┌──────────┐   ┌───────────────────┐   ┌──────────────┐   ┌────────────┐  │
-│  │ Telegram  │──▶│  Agente de IA     │──▶│  Voto        │──▶│ Publicação │──┼──▶ RSS Feed
-│  │ Gateway   │◀──│  (Google ADK)     │   │  Popular     │   │ & Feedback │──┼──▶ Webhooks
-│  └──────────┘   └──────────┬────────┘   └──────────────┘   └─────┬──────┘  │
-│                            │                                      │         │
-│                  ┌─────────▼──────────┐              ┌────────────▼──────┐  │
-│                  │  API Dados Abertos │              │  Comparativo      │  │
-│                  │  Câmara dos        │              │  Popular vs Real  │  │
-│                  │  Deputados         │              └───────────────────┘  │
-│                  └────────────────────┘                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    Eleitor["🗳️ Eleitor<br/>(Telegram)"] -->|"O que é o PL 1234?"| TG["Telegram<br/>Gateway"]
+    TG <--> Agent["🧠 Agente de IA<br/>(Google ADK)"]
+    Agent --> Voto["Voto<br/>Popular"]
+    Voto --> Pub["Publicação<br/>& Feedback"]
+    Pub --> RSS["📡 RSS Feed"]
+    Pub --> WH["🔗 Webhooks"]
+    RSS --> Parlamentar["🏛️ Parlamentar<br/>(assinante)"]
+    WH --> Parlamentar
+    Agent --> API["API Dados Abertos<br/>Câmara dos Deputados"]
+    Pub --> Comp["Comparativo<br/>Popular vs Real"]
+
+    style Eleitor fill:#e3f2fd,stroke:#1565c0
+    style Parlamentar fill:#e8f5e9,stroke:#2e7d32
+    style Agent fill:#fff3e0,stroke:#ef6c00
 ```
 
 ### O ciclo completo

@@ -142,25 +142,23 @@ Cenário ideal para **validação inicial**, staging, ou rodar o MVP com custo m
 
 ### 2.1 Arquitetura
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                 Compute Engine VM (e2-small)             │
-│                                                         │
-│  ┌─────────┐  ┌──────────┐  ┌───────┐  ┌────────────┐  │
-│  │ Backend  │  │ Celery   │  │ Redis │  │ PostgreSQL │  │
-│  │ (FastAPI)│  │ Worker + │  │  7    │  │    16      │  │
-│  │  :8000   │  │  Beat    │  └───────┘  └────────────┘  │
-│  └────┬─────┘  └──────────┘                             │
-│       │                                                 │
-│  ┌────▼─────────────┐                                   │
-│  │ Caddy / Nginx    │  ← Reverse proxy + HTTPS (Let's Encrypt)
-│  │  :80 / :443      │                                   │
-│  └──────────────────┘                                   │
-└─────────────────────────────────────────────────────────┘
-          │
-    ┌─────▼─────┐
-    │  IP Fixo  │  ← Elastic IP (IP externo estático)
-    └───────────┘
+```mermaid
+graph TD
+    subgraph VM ["Compute Engine VM (e2-small)"]
+        BE["Backend<br/>(FastAPI) :8000"]
+        CL["Celery<br/>Worker + Beat"]
+        RD["Redis 7"]
+        PG["PostgreSQL 16"]
+        BE --- CL
+        BE --- RD
+        BE --- PG
+        RP["Caddy / Nginx<br/>:80 / :443<br/>Reverse proxy + HTTPS<br/>(Let's Encrypt)"]
+        RP --> BE
+    end
+
+    IP["IP Fixo<br/>(Elastic IP)"] --> RP
+
+    style VM fill:#e3f2fd,stroke:#1565c0
 ```
 
 ### 2.2 Especificação da VM Mínima
@@ -406,48 +404,32 @@ Arquitetura para produção com alta disponibilidade, auto-scaling e serviços g
 
 ### 3.1 Visão Geral da Arquitetura
 
-```
-                    ┌──────────────────────┐
-                    │   Cloud DNS          │
-                    │   parlamentaria.app  │
-                    └──────────┬───────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │  Cloud Load Balancer │  ← HTTPS + certificado gerenciado
-                    │  (Global L7)         │
-                    └──────────┬───────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-     ┌────────▼─────┐  ┌──────▼───────┐  ┌─────▼────────┐
-     │  Cloud Run    │  │  Cloud Run   │  │  Cloud Run   │
-     │  (Backend)    │  │  (Backend)   │  │  (Backend)   │
-     │  Auto-scale   │  │  Instância 2 │  │  Instância N │
-     │  0 → 10       │  │              │  │              │
-     └───────┬───────┘  └──────┬───────┘  └──────┬───────┘
-             │                 │                 │
-             └────────┬────────┴────────┬────────┘
-                      │                 │
-            ┌─────────▼──────┐  ┌───────▼────────┐
-            │  Cloud SQL     │  │  Memorystore   │
-            │  PostgreSQL 16 │  │  Redis          │
-            │  (HA, backups) │  │  (Standard)    │
-            └────────────────┘  └────────────────┘
+```mermaid
+graph TD
+    DNS["Cloud DNS<br/>parlamentaria.app"] --> LB["Cloud Load Balancer<br/>(Global L7)<br/>HTTPS + certificado gerenciado"]
+    
+    LB --> CR1["Cloud Run<br/>(Backend)<br/>Auto-scale 0→10"]
+    LB --> CR2["Cloud Run<br/>(Backend)<br/>Instância 2"]
+    LB --> CRN["Cloud Run<br/>(Backend)<br/>Instância N"]
 
-     ┌───────────────────┐  ┌────────────────────────┐
-     │  Cloud Tasks /    │  │  Cloud Scheduler       │
-     │  Cloud Run Jobs   │  │  (cron: sync Câmara)   │
-     │  (Celery worker)  │  │  (cron: notificações)  │
-     └───────────────────┘  └────────────────────────┘
+    CR1 --> SQL[("Cloud SQL<br/>PostgreSQL 16<br/>(HA, backups)")]
+    CR2 --> SQL
+    CRN --> SQL
+    CR1 --> MEM["Memorystore<br/>Redis (Standard)"]
+    CR2 --> MEM
+    CRN --> MEM
 
-     ┌───────────────────┐  ┌────────────────────────┐
-     │  Secret Manager   │  │  Cloud Monitoring      │
-     │  (credenciais)    │  │  + Cloud Logging       │
-     └───────────────────┘  └────────────────────────┘
+    CRJ["Cloud Tasks /<br/>Cloud Run Jobs<br/>(Celery worker)"] --> SQL
+    CRJ --> MEM
+    SCHED["Cloud Scheduler<br/>(cron: sync Câmara,<br/>notificações)"] --> CRJ
 
-     ┌───────────────────┐
-     │  Artifact Registry│  ← Container images
-     └───────────────────┘
+    SEC["Secret Manager<br/>(credenciais)"]
+    MON["Cloud Monitoring<br/>+ Cloud Logging"]
+    AR["Artifact Registry<br/>(Container images)"]
+
+    style DNS fill:#e3f2fd,stroke:#1565c0
+    style LB fill:#fff3e0,stroke:#ef6c00
+    style SQL fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ### 3.2 Componentes e Serviços GCP
