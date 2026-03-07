@@ -52,7 +52,7 @@ class ComparativoService:
     async def gerar_comparativo(
         self,
         proposicao_id: int,
-        votacao_camara_id: int,
+        votacao_camara_id: str,
         resultado_camara: str,
         votos_camara_sim: int,
         votos_camara_nao: int,
@@ -139,7 +139,7 @@ class ComparativoService:
         """
         return await self.comparativo_repo.list_recent(limit=limit)
 
-    async def exists_for_votacao(self, votacao_camara_id: int) -> bool:
+    async def exists_for_votacao(self, votacao_camara_id: str) -> bool:
         """Check if a comparative already exists for a parliamentary vote.
 
         Args:

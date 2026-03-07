@@ -15,7 +15,7 @@ class VotacaoBase(BaseModel):
 class VotacaoCreate(VotacaoBase):
     """DTO for creating a vote session (from API sync)."""
 
-    id: int = Field(..., description="ID from Câmara API")
+    id: str = Field(..., description="ID from Câmara API")
     proposicao_id: int | None = None
     aprovacao: bool | None = None
     votos_sim: int = 0
@@ -39,7 +39,7 @@ class VotacaoUpdate(BaseModel):
 class VotacaoResponse(VotacaoBase):
     """DTO for vote session response."""
 
-    id: int
+    id: str
     proposicao_id: int | None = None
     aprovacao: bool | None = None
     votos_sim: int

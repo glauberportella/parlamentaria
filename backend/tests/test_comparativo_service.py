@@ -122,7 +122,7 @@ class TestComparativoServiceGerar:
         with pytest.raises(NotFoundException):
             await comparativo_service.gerar_comparativo(
                 proposicao_id=99999,
-                votacao_camara_id=1,
+                votacao_camara_id="1",
                 resultado_camara="APROVADO",
                 votos_camara_sim=10,
                 votos_camara_nao=5,

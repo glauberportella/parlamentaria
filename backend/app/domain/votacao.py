@@ -14,7 +14,7 @@ class Votacao(Base):
 
     __tablename__ = "votacoes"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, doc="ID da API Câmara")
+    id: Mapped[str] = mapped_column(String(50), primary_key=True, doc="ID da API Câmara")
     proposicao_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("proposicoes.id"), nullable=True
     )

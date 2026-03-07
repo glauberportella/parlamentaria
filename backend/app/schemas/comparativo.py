@@ -10,7 +10,7 @@ class ComparativoCreate(BaseModel):
     """DTO for creating a comparative analysis."""
 
     proposicao_id: int
-    votacao_camara_id: int
+    votacao_camara_id: str
     voto_popular_sim: int = 0
     voto_popular_nao: int = 0
     voto_popular_abstencao: int = 0
@@ -26,7 +26,7 @@ class ComparativoResponse(BaseModel):
 
     id: uuid.UUID
     proposicao_id: int
-    votacao_camara_id: int
+    votacao_camara_id: str
     voto_popular_sim: int
     voto_popular_nao: int
     voto_popular_abstencao: int

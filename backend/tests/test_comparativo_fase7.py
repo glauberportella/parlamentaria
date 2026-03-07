@@ -37,7 +37,7 @@ async def _seed_full_cycle(session: AsyncSession) -> dict:
     session.add(prop)
 
     votacao = Votacao(
-        id=2001,
+        id="2001",
         proposicao_id=1001,
         data=datetime(2026, 2, 20, 14, 0, tzinfo=timezone.utc),
         descricao="Votação do PL 42/2026",
@@ -122,7 +122,7 @@ class TestComparativoRepository:
 
         comp1 = ComparativoVotacao(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             voto_popular_sim=1,
             voto_popular_nao=1,
             resultado_camara="APROVADO",
@@ -147,7 +147,7 @@ class TestComparativoRepository:
         for i in range(3):
             comp = ComparativoVotacao(
                 proposicao_id=1001,
-                votacao_camara_id=2001,
+                votacao_camara_id="2001",
                 voto_popular_sim=i + 1,
                 voto_popular_nao=1,
                 resultado_camara="APROVADO",
@@ -170,7 +170,7 @@ class TestComparativoRepository:
 
         comp = ComparativoVotacao(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             voto_popular_sim=1,
             voto_popular_nao=1,
             resultado_camara="APROVADO",
@@ -202,7 +202,7 @@ class TestComparativoRepository:
 
         comp = ComparativoVotacao(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             voto_popular_sim=1,
             voto_popular_nao=1,
             resultado_camara="APROVADO",
@@ -214,14 +214,14 @@ class TestComparativoRepository:
         await db_session.flush()
 
         repo = ComparativoRepository(db_session)
-        assert await repo.exists_for_votacao(2001) is True
+        assert await repo.exists_for_votacao("2001") is True
 
     async def test_exists_for_votacao_false(self, db_session):
         """Should return False when no comparativo exists."""
         from app.repositories.comparativo import ComparativoRepository
 
         repo = ComparativoRepository(db_session)
-        assert await repo.exists_for_votacao(9999) is False
+        assert await repo.exists_for_votacao("9999") is False
 
 
 # ===========================================================================
@@ -240,7 +240,7 @@ class TestComparativoServiceEnhanced:
         service = ComparativoService(db_session)
         comparativo = await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,
@@ -258,7 +258,7 @@ class TestComparativoServiceEnhanced:
         service = ComparativoService(db_session)
         await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,
@@ -275,17 +275,17 @@ class TestComparativoServiceEnhanced:
         data = await _seed_full_cycle(db_session)
 
         service = ComparativoService(db_session)
-        assert await service.exists_for_votacao(2001) is False
+        assert await service.exists_for_votacao("2001") is False
 
         await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,
         )
 
-        assert await service.exists_for_votacao(2001) is True
+        assert await service.exists_for_votacao("2001") is True
 
     async def test_get_comparativo_with_proposicao(self, db_session):
         """Should return enriched comparativo with proposicao details."""
@@ -296,7 +296,7 @@ class TestComparativoServiceEnhanced:
         service = ComparativoService(db_session)
         await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,
@@ -341,7 +341,7 @@ class TestGerarComparativosTaskFullCycle:
         mock_session_ctx.return_value = mock_ctx
 
         mock_votacao = MagicMock()
-        mock_votacao.id = 111
+        mock_votacao.id = "111"
         mock_votacao.proposicao_id = 222
         mock_votacao.aprovacao = True
         mock_votacao.votos_sim = 300
@@ -401,7 +401,7 @@ class TestGerarComparativosTaskFullCycle:
         mock_session_ctx.return_value = mock_ctx
 
         mock_votacao = MagicMock()
-        mock_votacao.id = 111
+        mock_votacao.id = "111"
         mock_votacao.proposicao_id = 222
         mock_votacao.aprovacao = False
         mock_votacao.votos_sim = 100
@@ -447,7 +447,7 @@ class TestGerarComparativosTaskFullCycle:
         mock_session_ctx.return_value = mock_ctx
 
         mock_votacao = MagicMock()
-        mock_votacao.id = 111
+        mock_votacao.id = "111"
         mock_votacao.proposicao_id = 222
         mock_votacao.aprovacao = True
         mock_votacao.votos_sim = 250
@@ -492,7 +492,7 @@ class TestGerarComparativosTaskFullCycle:
         mock_session_ctx.return_value = mock_ctx
 
         mock_votacao = MagicMock()
-        mock_votacao.id = 111
+        mock_votacao.id = "111"
         mock_votacao.proposicao_id = 222
         mock_votacao.aprovacao = True
         mock_votacao.votos_sim = 300
@@ -953,7 +953,7 @@ class TestAdminComparativos:
         service = ComparativoService(db_session)
         await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,
@@ -989,7 +989,7 @@ class TestFullCycleEndToEnd:
         # Generate comparativo
         comparativo = await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,
@@ -1011,8 +1011,8 @@ class TestFullCycleEndToEnd:
         assert len(recent) == 1
 
         # Exists check
-        assert await service.exists_for_votacao(2001) is True
-        assert await service.exists_for_votacao(9999) is False
+        assert await service.exists_for_votacao("2001") is True
+        assert await service.exists_for_votacao("9999") is False
 
     async def test_full_cycle_enriched_comparativo(self, db_session):
         """Full cycle with enriched proposicao details."""
@@ -1023,7 +1023,7 @@ class TestFullCycleEndToEnd:
         service = ComparativoService(db_session)
         await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="REJEITADO",
             votos_camara_sim=100,
             votos_camara_nao=350,
@@ -1048,7 +1048,7 @@ class TestFullCycleEndToEnd:
         comp_service = ComparativoService(db_session)
         comparativo = await comp_service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,
@@ -1097,7 +1097,7 @@ class TestFullCycleEndToEnd:
         service = ComparativoService(db_session)
         await service.gerar_comparativo(
             proposicao_id=1001,
-            votacao_camara_id=2001,
+            votacao_camara_id="2001",
             resultado_camara="APROVADO",
             votos_camara_sim=300,
             votos_camara_nao=150,

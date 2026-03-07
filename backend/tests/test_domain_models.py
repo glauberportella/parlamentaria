@@ -58,7 +58,7 @@ class TestVotacao:
         db_session.add(vot)
         await db_session.flush()
 
-        assert vot.id == 11111
+        assert vot.id == "11111"
         assert vot.proposicao_id == 12345
         assert vot.votos_sim == 300
 
@@ -339,7 +339,7 @@ class TestComparativoVotacao:
         """repr should show proposition and alignment."""
         comp = ComparativoVotacao(
             proposicao_id=1,
-            votacao_camara_id=2,
+            votacao_camara_id="2",
             resultado_camara="APROVADO",
             alinhamento=0.75,
         )

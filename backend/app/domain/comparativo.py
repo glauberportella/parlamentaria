@@ -21,8 +21,8 @@ class ComparativoVotacao(Base):
     proposicao_id: Mapped[int] = mapped_column(
         ForeignKey("proposicoes.id"), nullable=False
     )
-    votacao_camara_id: Mapped[int] = mapped_column(
-        ForeignKey("votacoes.id"), nullable=False
+    votacao_camara_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("votacoes.id"), nullable=False
     )
     voto_popular_sim: Mapped[int] = mapped_column(Integer, default=0)
     voto_popular_nao: Mapped[int] = mapped_column(Integer, default=0)

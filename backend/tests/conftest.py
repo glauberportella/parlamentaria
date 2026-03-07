@@ -201,7 +201,7 @@ def sample_deputado_data() -> dict:
 def sample_votacao_data() -> dict:
     """Return a dict of valid Votacao fields."""
     return {
-        "id": 11111,
+        "id": "11111",
         "proposicao_id": 12345,
         "data": datetime(2024, 6, 10, 14, 0, tzinfo=timezone.utc),
         "descricao": "Votação do PL 100/2024",

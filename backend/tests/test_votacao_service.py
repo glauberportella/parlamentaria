@@ -60,14 +60,14 @@ class TestVotacaoServiceCreate:
 
     async def test_create_votacao(self, service):
         data = VotacaoCreate(
-            id=22222,
+            id="22222",
             data=datetime(2024, 7, 1, 10, 0, tzinfo=timezone.utc),
             descricao="Nova votação",
             votos_sim=200,
             votos_nao=100,
         )
         result = await service.create(data)
-        assert result.id == 22222
+        assert result.id == "22222"
         assert result.descricao == "Nova votação"
 
 
@@ -76,12 +76,12 @@ class TestVotacaoServiceUpsert:
 
     async def test_upsert_creates_new(self, service):
         api_data = {
-            "id": 33333,
+            "id": "33333",
             "data": datetime(2024, 8, 1, tzinfo=timezone.utc),
             "descricao": "Votação vinda da API",
         }
         result = await service.upsert_from_api(api_data)
-        assert result.id == 33333
+        assert result.id == "33333"
 
     async def test_upsert_updates_existing(self, service, votacao_in_db):
         api_data = {

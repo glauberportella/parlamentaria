@@ -86,7 +86,7 @@ class TestSyncVotacoes:
     async def test_sync_votacoes_success(self, MockClient, service):
         mock_client = AsyncMock()
         mock_client.listar_votacoes = AsyncMock(side_effect=[
-            [_make_votacao_api(100), _make_votacao_api(200)],
+            [_make_votacao_api("100-1"), _make_votacao_api("200-2")],
             [],
         ])
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)

@@ -71,16 +71,16 @@ class TestVotacaoSchema:
 
     def test_create_valid(self):
         dto = VotacaoCreate(
-            id=111,
+            id="111",
             data=datetime.now(timezone.utc),
             descricao="Votação teste",
         )
-        assert dto.id == 111
+        assert dto.id == "111"
         assert dto.votos_sim == 0
 
     def test_response(self):
         dto = VotacaoResponse(
-            id=111,
+            id="111",
             data=datetime.now(timezone.utc),
             descricao="Votação",
             votos_sim=100,
@@ -254,7 +254,7 @@ class TestComparativoSchema:
     def test_create_valid(self):
         dto = ComparativoCreate(
             proposicao_id=123,
-            votacao_camara_id=456,
+            votacao_camara_id="456",
             resultado_camara="APROVADO",
             alinhamento=0.8,
         )
@@ -265,7 +265,7 @@ class TestComparativoSchema:
         with pytest.raises(ValidationError):
             ComparativoCreate(
                 proposicao_id=123,
-                votacao_camara_id=456,
+                votacao_camara_id="456",
                 resultado_camara="APROVADO",
                 alinhamento=1.5,
             )
@@ -274,7 +274,7 @@ class TestComparativoSchema:
         dto = ComparativoResponse(
             id=uuid.uuid4(),
             proposicao_id=123,
-            votacao_camara_id=456,
+            votacao_camara_id="456",
             voto_popular_sim=100,
             voto_popular_nao=50,
             voto_popular_abstencao=10,

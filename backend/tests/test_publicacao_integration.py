@@ -86,7 +86,7 @@ async def _create_comparativo(db_session, proposicao_id=10001):
     """Helper: insert a ComparativoVotacao."""
     comp = ComparativoVotacao(
         proposicao_id=proposicao_id,
-        votacao_camara_id=99999,
+        votacao_camara_id="99999",
         voto_popular_sim=80,
         voto_popular_nao=15,
         voto_popular_abstencao=5,

@@ -19,7 +19,7 @@ class VotacaoService:
         self.session = session
         self.repo = VotacaoRepository(session)
 
-    async def get_by_id(self, votacao_id: int) -> Votacao:
+    async def get_by_id(self, votacao_id: str) -> Votacao:
         """Get a vote session by ID.
 
         Args:

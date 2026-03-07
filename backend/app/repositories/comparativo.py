@@ -71,7 +71,7 @@ class ComparativoRepository(BaseRepository[ComparativoVotacao]):
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def exists_for_votacao(self, votacao_camara_id: int) -> bool:
+    async def exists_for_votacao(self, votacao_camara_id: str) -> bool:
         """Check if a comparative already exists for a parliamentary vote.
 
         Args:
