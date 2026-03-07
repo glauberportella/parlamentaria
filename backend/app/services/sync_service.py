@@ -310,15 +310,15 @@ class SyncService:
         """
         stats = {"created": 0, "updated": 0, "errors": 0, "total_fetched": 0}
 
-        data_inicio = (datetime.now(timezone.utc) - timedelta(days=dias_atras)).strftime("%Y-%m-%d")
-        data_fim = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        filtro_inicio = (datetime.now(timezone.utc) - timedelta(days=dias_atras)).strftime("%Y-%m-%d")
+        filtro_fim = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         async with CamaraClient() as client:
             for pagina in range(1, paginas + 1):
                 try:
                     eventos = await client.listar_eventos(
-                        data_inicio=data_inicio,
-                        data_fim=data_fim,
+                        data_inicio=filtro_inicio,
+                        data_fim=filtro_fim,
                         pagina=pagina,
                         itens=itens_por_pagina,
                     )
@@ -336,26 +336,40 @@ class SyncService:
                     try:
                         async with self.session.begin_nested():
                             # Parse datetime strings from API to Python datetime objects
-                            data_inicio = None
+                            evt_data_inicio = None
                             if evt_api.dataHoraInicio:
                                 try:
-                                    data_inicio = datetime.fromisoformat(evt_api.dataHoraInicio)
+                                    evt_data_inicio = datetime.fromisoformat(evt_api.dataHoraInicio)
+                                    if evt_data_inicio.tzinfo is None:
+                                        evt_data_inicio = evt_data_inicio.replace(tzinfo=timezone.utc)
                                 except (ValueError, TypeError):
-                                    data_inicio = evt_api.dataHoraInicio
+                                    logger.warning(
+                                        "sync.evento.date_parse_error",
+                                        id=evt_api.id,
+                                        field="dataHoraInicio",
+                                        raw=evt_api.dataHoraInicio,
+                                    )
 
-                            data_fim = None
+                            evt_data_fim = None
                             if evt_api.dataHoraFim:
                                 try:
-                                    data_fim = datetime.fromisoformat(evt_api.dataHoraFim)
+                                    evt_data_fim = datetime.fromisoformat(evt_api.dataHoraFim)
+                                    if evt_data_fim.tzinfo is None:
+                                        evt_data_fim = evt_data_fim.replace(tzinfo=timezone.utc)
                                 except (ValueError, TypeError):
-                                    data_fim = evt_api.dataHoraFim
+                                    logger.warning(
+                                        "sync.evento.date_parse_error",
+                                        id=evt_api.id,
+                                        field="dataHoraFim",
+                                        raw=evt_api.dataHoraFim,
+                                    )
 
                             api_data = {
                                 "id": evt_api.id,
                                 "descricao": evt_api.descricao or "",
                                 "tipo_evento": evt_api.descricaoTipo,
-                                "data_inicio": data_inicio,
-                                "data_fim": data_fim,
+                                "data_inicio": evt_data_inicio,
+                                "data_fim": evt_data_fim,
                                 "situacao": evt_api.situacao,
                             }
                             await self.evento_service.upsert_from_api(api_data)
