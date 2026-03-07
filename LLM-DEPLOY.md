@@ -43,18 +43,16 @@
 
 O Google ADK é **model-agnostic**. Ele suporta qualquer LLM que exponha uma API compatível com OpenAI, via **LiteLLM** como wrapper. A integração com Llama funciona assim:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Google ADK (LlmAgent)                    │
-│                                                             │
-│   model="litellm/ollama/llama3.1:8b-instruct-q8_0"         │
-│         │                                                   │
-│         ▼                                                   │
-│   ┌───────────┐    ┌──────────────┐    ┌─────────────────┐  │
-│   │  LiteLLM  │───▶│ OpenAI-compat│───▶│ Ollama / vLLM   │  │
-│   │  (proxy)  │    │  API endpoint│    │ (Llama 3.1 8B)  │  │
-│   └───────────┘    └──────────────┘    └─────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph ADK ["Google ADK (LlmAgent)"]
+        MODEL["model=litellm/ollama/llama3.1:8b-instruct-q8_0"]
+        MODEL --> LITE["LiteLLM<br/>(proxy)"]
+        LITE --> COMPAT["OpenAI-compat<br/>API endpoint"]
+        COMPAT --> OLLAMA["Ollama / vLLM<br/>(Llama 3.1 8B)"]
+    end
+
+    style ADK fill:#e3f2fd,stroke:#1565c0
 ```
 
 ### 2.1 Como o ADK resolve o modelo
@@ -514,28 +512,23 @@ VERTEXAI_LOCATION=southamerica-east1
 
 Para controle total e melhor custo em escala:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                   GKE Cluster                           │
-│                                                         │
-│  ┌───────────────────────────────┐                      │
-│  │  Node Pool: GPU (spot/preemptible)                   │
-│  │  ┌─────────────┐ ┌─────────────┐                    │
-│  │  │ vLLM Pod 1  │ │ vLLM Pod 2  │  ← HPA            │
-│  │  │ (L4 GPU)    │ │ (L4 GPU)    │                    │
-│  │  └──────┬──────┘ └──────┬──────┘                    │
-│  └─────────┼───────────────┼────────┘                   │
-│            │               │                            │
-│  ┌─────────▼───────────────▼────────┐                   │
-│  │  Service (ClusterIP)             │                   │
-│  │  vllm-service:8000               │                   │
-│  └──────────────┬───────────────────┘                   │
-│                 │                                        │
-│  ┌──────────────▼───────────────────┐                   │
-│  │  Backend Pods (Cloud Run / GKE)  │                   │
-│  │  OPENAI_API_BASE=http://vllm:8000│                   │
-│  └──────────────────────────────────┘                   │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph GKE ["GKE Cluster"]
+        subgraph GPU ["Node Pool: GPU (spot/preemptible)"]
+            P1["vLLM Pod 1<br/>(L4 GPU)"]
+            P2["vLLM Pod 2<br/>(L4 GPU)"]
+        end
+        SVC["Service (ClusterIP)<br/>vllm-service:8000"] --> P1
+        SVC --> P2
+        BE["Backend Pods<br/>(Cloud Run / GKE)<br/>OPENAI_API_BASE=http://vllm:8000"] --> SVC
+    end
+
+    HPA["HPA<br/>(Horizontal Pod Autoscaler)"] -.-> P1
+    HPA -.-> P2
+
+    style GKE fill:#e3f2fd,stroke:#1565c0
+    style GPU fill:#fff3e0,stroke:#ef6c00
 ```
 
 **Kubernetes manifests:**
