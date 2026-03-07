@@ -48,4 +48,9 @@ def sync_proposicoes_task(self, ano: int | None = None, sigla_tipo: str | None =
         generate_embeddings_task.delay()
         logger.info("task.sync_proposicoes.triggered_embeddings")
 
+        # Chain: trigger AI analysis for newly synced propositions
+        from app.tasks.generate_analysis import generate_analysis_task
+        generate_analysis_task.delay()
+        logger.info("task.sync_proposicoes.triggered_analysis")
+
     return result
