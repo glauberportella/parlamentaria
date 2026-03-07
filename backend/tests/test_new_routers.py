@@ -2,13 +2,17 @@
 
 import pytest
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
+from unittest.mock import patch, MagicMock
 
 from httpx import AsyncClient
 
 from app.config import settings
 from app.domain.proposicao import Proposicao
 from app.domain.eleitor import Eleitor
+from app.domain.deputado import Deputado
+from app.domain.partido import Partido
+from app.domain.evento import Evento
 from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
 from app.domain.assinatura import AssinaturaRSS
 
@@ -286,3 +290,238 @@ class TestAdminRouterUpdated:
         )
         assert resp.status_code == 200
         assert resp.json()["total"] == 0
+
+
+# ------------------------------------------------------------------
+# Admin: Deputados
+# ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestAdminDeputadosRouter:
+    """Tests for admin deputy endpoints."""
+
+    async def test_list_deputados(self, client: AsyncClient, db_session):
+        dep = Deputado(
+            id=999, nome="Dep Teste", sigla_partido="PT", sigla_uf="SP",
+        )
+        db_session.add(dep)
+        await db_session.flush()
+
+        resp = await client.get(
+            "/admin/deputados",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["nome"] == "Dep Teste"
+        assert data["items"][0]["sigla_partido"] == "PT"
+
+    async def test_list_deputados_filter_uf(self, client: AsyncClient, db_session):
+        dep1 = Deputado(id=1001, nome="Dep SP", sigla_partido="PT", sigla_uf="SP")
+        dep2 = Deputado(id=1002, nome="Dep RJ", sigla_partido="PL", sigla_uf="RJ")
+        db_session.add_all([dep1, dep2])
+        await db_session.flush()
+
+        resp = await client.get(
+            "/admin/deputados?sigla_uf=SP",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["sigla_uf"] == "SP"
+
+    async def test_list_deputados_unauthorized(self, client: AsyncClient):
+        resp = await client.get("/admin/deputados")
+        assert resp.status_code == 422  # Missing header
+
+    @patch("app.tasks.sync_deputados.sync_deputados_task")
+    async def test_sync_deputados(self, mock_task, client: AsyncClient):
+        mock_task.delay = MagicMock()
+        resp = await client.post(
+            "/admin/sync/deputados",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "queued"
+        mock_task.delay.assert_called_once()
+
+    @patch("app.tasks.sync_deputados.sync_deputados_task")
+    async def test_sync_deputados_with_filters(self, mock_task, client: AsyncClient):
+        mock_task.delay = MagicMock()
+        resp = await client.post(
+            "/admin/sync/deputados?sigla_uf=MG&sigla_partido=PT",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        mock_task.delay.assert_called_once_with(sigla_uf="MG", sigla_partido="PT")
+
+
+# ------------------------------------------------------------------
+# Admin: Partidos
+# ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestAdminPartidosRouter:
+    """Tests for admin party endpoints."""
+
+    async def test_list_partidos(self, client: AsyncClient, db_session):
+        partido = Partido(id=100, sigla="PT", nome="Partido dos Trabalhadores")
+        db_session.add(partido)
+        await db_session.flush()
+
+        resp = await client.get(
+            "/admin/partidos",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["sigla"] == "PT"
+
+    async def test_list_partidos_empty(self, client: AsyncClient):
+        resp = await client.get(
+            "/admin/partidos",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+    @patch("app.tasks.sync_partidos.sync_partidos_task")
+    async def test_sync_partidos(self, mock_task, client: AsyncClient):
+        mock_task.delay = MagicMock()
+        resp = await client.post(
+            "/admin/sync/partidos",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "queued"
+        mock_task.delay.assert_called_once()
+
+
+# ------------------------------------------------------------------
+# Admin: Eventos
+# ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestAdminEventosRouter:
+    """Tests for admin event endpoints."""
+
+    async def test_list_eventos(self, client: AsyncClient, db_session):
+        evento = Evento(
+            id=500,
+            descricao="Sessão Plenária Ordinária",
+            tipo_evento="Sessão Deliberativa",
+            data_inicio=datetime(2026, 3, 1, 14, 0, tzinfo=timezone.utc),
+            situacao="Encerrada",
+        )
+        db_session.add(evento)
+        await db_session.flush()
+
+        resp = await client.get(
+            "/admin/eventos",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["descricao"] == "Sessão Plenária Ordinária"
+
+    async def test_list_eventos_empty(self, client: AsyncClient):
+        resp = await client.get(
+            "/admin/eventos",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+    @patch("app.tasks.sync_eventos.sync_eventos_task")
+    async def test_sync_eventos(self, mock_task, client: AsyncClient):
+        mock_task.delay = MagicMock()
+        resp = await client.post(
+            "/admin/sync/eventos",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "queued"
+        mock_task.delay.assert_called_once()
+
+    @patch("app.tasks.sync_eventos.sync_eventos_task")
+    async def test_sync_eventos_with_dias_atras(self, mock_task, client: AsyncClient):
+        mock_task.delay = MagicMock()
+        resp = await client.post(
+            "/admin/sync/eventos?dias_atras=30",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        mock_task.delay.assert_called_once_with(dias_atras=30)
+
+
+# ------------------------------------------------------------------
+# Admin: Sync Proposições / Votações / All
+# ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestAdminSyncGeneralRouter:
+    """Tests for general sync admin endpoints."""
+
+    @patch("app.tasks.sync_proposicoes.sync_proposicoes_task")
+    async def test_sync_proposicoes(self, mock_task, client: AsyncClient):
+        mock_task.delay = MagicMock()
+        resp = await client.post(
+            "/admin/sync/proposicoes?ano=2026&sigla_tipo=PL",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "queued"
+        mock_task.delay.assert_called_once_with(ano=2026, sigla_tipo="PL")
+
+    @patch("app.tasks.sync_votacoes.sync_votacoes_task")
+    async def test_sync_votacoes(self, mock_task, client: AsyncClient):
+        mock_task.delay = MagicMock()
+        resp = await client.post(
+            "/admin/sync/votacoes",
+            headers={"X-API-Key": settings.admin_api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "queued"
+        mock_task.delay.assert_called_once()
+
+    async def test_sync_all(self, client: AsyncClient):
+        with patch("app.tasks.sync_proposicoes.sync_proposicoes_task") as m1, \
+             patch("app.tasks.sync_votacoes.sync_votacoes_task") as m2, \
+             patch("app.tasks.sync_deputados.sync_deputados_task") as m3, \
+             patch("app.tasks.sync_partidos.sync_partidos_task") as m4, \
+             patch("app.tasks.sync_eventos.sync_eventos_task") as m5:
+            m1.delay = MagicMock()
+            m2.delay = MagicMock()
+            m3.delay = MagicMock()
+            m4.delay = MagicMock()
+            m5.delay = MagicMock()
+
+            resp = await client.post(
+                "/admin/sync/all",
+                headers={"X-API-Key": settings.admin_api_key},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["status"] == "queued"
+            m1.delay.assert_called_once()
+            m2.delay.assert_called_once()
+            m3.delay.assert_called_once()
+            m4.delay.assert_called_once()
+            m5.delay.assert_called_once()
+
+    async def test_sync_all_unauthorized(self, client: AsyncClient):
+        resp = await client.post("/admin/sync/all")
+        assert resp.status_code == 422  # Missing header

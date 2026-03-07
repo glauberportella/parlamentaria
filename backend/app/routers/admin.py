@@ -10,9 +10,15 @@ from app.middleware import limiter
 from app.schemas.proposicao import ProposicaoResponse
 from app.schemas.eleitor import EleitorResponse
 from app.schemas.comparativo import ComparativoResponse
+from app.schemas.deputado import DeputadoResponse
+from app.schemas.partido import PartidoResponse
+from app.schemas.evento import EventoResponse
 from app.services.proposicao_service import ProposicaoService
 from app.services.analise_service import AnaliseIAService
 from app.services.eleitor_service import EleitorService
+from app.services.deputado_service import DeputadoService
+from app.services.partido_service import PartidoService
+from app.services.evento_service import EventoService
 from app.services.voto_popular_service import VotoPopularService
 from app.services.comparativo_service import ComparativoService
 from app.schemas.analise_ia import AnaliseIAResponse
@@ -154,6 +160,179 @@ async def list_comparativos(
     return {
         "total": len(comparativos),
         "items": [ComparativoResponse.model_validate(c) for c in comparativos],
+    }
+
+
+# ------------------------------------------------------------------
+# Deputados
+# ------------------------------------------------------------------
+
+
+@router.get("/deputados", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
+async def list_deputados(
+    request: Request,
+    sigla_partido: str | None = Query(None),
+    sigla_uf: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """List synced deputies (admin only)."""
+    service = DeputadoService(db)
+    deputados = await service.list_deputados(sigla_partido=sigla_partido, sigla_uf=sigla_uf)
+    return {
+        "total": len(deputados),
+        "items": [DeputadoResponse.model_validate(d) for d in deputados],
+    }
+
+
+@router.post("/sync/deputados", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def sync_deputados(
+    request: Request,
+    sigla_uf: str | None = Query(None, description="Filtrar por UF"),
+    sigla_partido: str | None = Query(None, description="Filtrar por partido"),
+) -> dict:
+    """Trigger deputy sync from the Câmara API via Celery task."""
+    from app.tasks.sync_deputados import sync_deputados_task
+
+    sync_deputados_task.delay(sigla_uf=sigla_uf, sigla_partido=sigla_partido)
+    return {
+        "status": "queued",
+        "message": "Sincronização de deputados enfileirada.",
+        "filters": {"sigla_uf": sigla_uf, "sigla_partido": sigla_partido},
+    }
+
+
+# ------------------------------------------------------------------
+# Partidos
+# ------------------------------------------------------------------
+
+
+@router.get("/partidos", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
+async def list_partidos(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """List synced political parties (admin only)."""
+    service = PartidoService(db)
+    partidos = await service.list_partidos()
+    return {
+        "total": len(partidos),
+        "items": [PartidoResponse.model_validate(p) for p in partidos],
+    }
+
+
+@router.post("/sync/partidos", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def sync_partidos(request: Request) -> dict:
+    """Trigger political party sync from the Câmara API via Celery task."""
+    from app.tasks.sync_partidos import sync_partidos_task
+
+    sync_partidos_task.delay()
+    return {
+        "status": "queued",
+        "message": "Sincronização de partidos enfileirada.",
+    }
+
+
+# ------------------------------------------------------------------
+# Eventos
+# ------------------------------------------------------------------
+
+
+@router.get("/eventos", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
+async def list_eventos(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """List recent plenary events (admin only)."""
+    service = EventoService(db)
+    eventos = await service.list_recent(limit=limit)
+    return {
+        "total": len(eventos),
+        "items": [EventoResponse.model_validate(e) for e in eventos],
+    }
+
+
+@router.post("/sync/eventos", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def sync_eventos(
+    request: Request,
+    dias_atras: int = Query(7, ge=1, le=90, description="Dias retroativos para sincronizar"),
+) -> dict:
+    """Trigger plenary event sync from the Câmara API via Celery task."""
+    from app.tasks.sync_eventos import sync_eventos_task
+
+    sync_eventos_task.delay(dias_atras=dias_atras)
+    return {
+        "status": "queued",
+        "message": f"Sincronização de eventos ({dias_atras} dias) enfileirada.",
+        "filters": {"dias_atras": dias_atras},
+    }
+
+
+# ------------------------------------------------------------------
+# Sync Geral (proposições + votações)
+# ------------------------------------------------------------------
+
+
+@router.post("/sync/proposicoes", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def sync_proposicoes(
+    request: Request,
+    ano: int | None = Query(None, description="Ano das proposições"),
+    sigla_tipo: str | None = Query(None, description="Tipo (PL, PEC, MPV, etc.)"),
+) -> dict:
+    """Trigger proposição sync from the Câmara API via Celery task."""
+    from app.tasks.sync_proposicoes import sync_proposicoes_task
+
+    sync_proposicoes_task.delay(ano=ano, sigla_tipo=sigla_tipo)
+    return {
+        "status": "queued",
+        "message": "Sincronização de proposições enfileirada.",
+        "filters": {"ano": ano, "sigla_tipo": sigla_tipo},
+    }
+
+
+@router.post("/sync/votacoes", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def sync_votacoes(request: Request) -> dict:
+    """Trigger votação sync from the Câmara API via Celery task."""
+    from app.tasks.sync_votacoes import sync_votacoes_task
+
+    sync_votacoes_task.delay()
+    return {
+        "status": "queued",
+        "message": "Sincronização de votações enfileirada.",
+    }
+
+
+@router.post("/sync/all", dependencies=[Depends(verify_api_key)])
+@limiter.limit("2/minute")
+async def sync_all(request: Request) -> dict:
+    """Trigger full sync of all entities from the Câmara API.
+
+    Enqueues separate Celery tasks for: proposições, votações,
+    deputados, partidos and eventos.
+    """
+    from app.tasks.sync_proposicoes import sync_proposicoes_task
+    from app.tasks.sync_votacoes import sync_votacoes_task
+    from app.tasks.sync_deputados import sync_deputados_task
+    from app.tasks.sync_partidos import sync_partidos_task
+    from app.tasks.sync_eventos import sync_eventos_task
+
+    sync_proposicoes_task.delay()
+    sync_votacoes_task.delay()
+    sync_deputados_task.delay()
+    sync_partidos_task.delay()
+    sync_eventos_task.delay()
+
+    return {
+        "status": "queued",
+        "message": "Sincronização completa enfileirada (proposições, votações, deputados, partidos, eventos).",
     }
 
 
