@@ -271,12 +271,13 @@ class TestAdminRouterUpdated:
         assert data["oficial"]["total"] == 0
 
     async def test_admin_trigger_analise(self, client: AsyncClient):
+        """Trigger analysis returns 404 when proposition does not exist."""
         resp = await client.post(
             "/admin/proposicoes/12345/analisar",
             headers={"X-API-Key": settings.admin_api_key},
         )
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "queued"
+        # Endpoint now validates that the proposition exists before enqueuing
+        assert resp.status_code == 404
 
     async def test_admin_comparativos(self, client: AsyncClient):
         resp = await client.get(

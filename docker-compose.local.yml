@@ -1,0 +1,74 @@
+# docker-compose.local.yml
+# Override para rodar localmente no macOS, simulando o ambiente homelab (Gemini API).
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Pré-requisitos:
+#   - Copiar .env.example para .env e preencher GOOGLE_API_KEY e TELEGRAM_BOT_TOKEN
+#   - Docker Desktop para macOS rodando
+#
+# Diferenças do homelab real:
+#   - Sem GPU / Ollama (usa Gemini API como o homelab-gemini)
+#   - PostgreSQL com tuning leve (adequado para macOS / Docker Desktop)
+#   - Portas expostas para debug local (DB, Redis)
+#   - Hot-reload ativado no backend (volumes já mapeados no base)
+#   - Sem Cloudflare Tunnel (usa ngrok ou localhost para webhook)
+#
+# Para testar webhook do Telegram localmente, use ngrok:
+#   ngrok http 8000
+#   E configure TELEGRAM_WEBHOOK_URL=https://<id>.ngrok-free.app/webhook/telegram
+
+services:
+  backend:
+    environment:
+      - AGENT_MODEL=gemini-2.5-flash
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - APP_ENV=development
+      - APP_DEBUG=true
+      - LOG_LEVEL=DEBUG
+    # Gunicorn como no homelab (simula produção), mas com 2 workers
+    command: >
+      python -m gunicorn app.main:app
+      -w 2
+      -k uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:8000
+      --access-logfile -
+      --error-logfile -
+      --timeout 120
+    restart: unless-stopped
+
+  celery-worker:
+    environment:
+      - AGENT_MODEL=gemini-2.5-flash
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LOG_LEVEL=DEBUG
+    command: celery -A app.tasks worker -l info --concurrency=2
+    restart: unless-stopped
+
+  celery-beat:
+    restart: unless-stopped
+
+  db:
+    # PostgreSQL com tuning leve para macOS (Docker Desktop tem menos recursos)
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c work_mem=16MB
+      -c max_connections=30
+      -c wal_buffers=8MB
+      -c checkpoint_completion_target=0.9
+      -c random_page_cost=1.1
+      -c log_statement=mod
+      -c log_min_duration_statement=500
+    environment:
+      POSTGRES_DB: parlamentaria
+      POSTGRES_USER: parlamentaria
+      POSTGRES_PASSWORD: parlamentaria
+    restart: unless-stopped
+
+  redis:
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped

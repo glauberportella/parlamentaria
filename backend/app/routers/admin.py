@@ -11,9 +11,11 @@ from app.schemas.proposicao import ProposicaoResponse
 from app.schemas.eleitor import EleitorResponse
 from app.schemas.comparativo import ComparativoResponse
 from app.services.proposicao_service import ProposicaoService
+from app.services.analise_service import AnaliseIAService
 from app.services.eleitor_service import EleitorService
 from app.services.voto_popular_service import VotoPopularService
 from app.services.comparativo_service import ComparativoService
+from app.schemas.analise_ia import AnaliseIAResponse
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -81,9 +83,62 @@ async def trigger_analise(
     proposicao_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Trigger IA analysis for a proposition (placeholder)."""
-    # TODO: Integrate with AnaliseIAService + LLM in Fase 3
+    """Trigger IA analysis for a proposition.
+
+    Validates that the proposition exists and enqueues a Celery task
+    to call the LLM and generate a structured analysis.
+    """
+    # Validate proposition exists
+    service = ProposicaoService(db)
+    await service.get_by_id(proposicao_id)  # raises NotFoundException
+
+    from app.tasks.generate_analysis import generate_analysis_task
+    generate_analysis_task.delay(proposicao_id=proposicao_id)
     return {"status": "queued", "proposicao_id": proposicao_id}
+
+
+@router.get("/proposicoes/{proposicao_id}/analise", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
+async def get_analise(
+    request: Request,
+    proposicao_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get the latest AI analysis for a proposition."""
+    service = AnaliseIAService(db)
+    analise = await service.get_latest_or_raise(proposicao_id)
+    return {
+        "status": "success",
+        "analise": AnaliseIAResponse.model_validate(analise),
+    }
+
+
+@router.get("/proposicoes/{proposicao_id}/analise/versoes", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
+async def list_analise_versions(
+    request: Request,
+    proposicao_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """List all AI analysis versions for a proposition."""
+    service = AnaliseIAService(db)
+    versions = await service.list_versions(proposicao_id)
+    return {
+        "total": len(versions),
+        "items": [AnaliseIAResponse.model_validate(v) for v in versions],
+    }
+
+
+@router.post("/analises/reanalyze", dependencies=[Depends(verify_api_key)])
+@limiter.limit("2/minute")
+async def trigger_reanalyze_all(request: Request) -> dict:
+    """Re-analyze all propositions (creates new version for each).
+
+    Useful when the model or prompt has been updated.
+    """
+    from app.tasks.generate_analysis import reanalyze_all_task
+    reanalyze_all_task.delay()
+    return {"status": "queued", "message": "Re-analysis of all propositions triggered."}
 
 
 @router.get("/comparativos", dependencies=[Depends(verify_api_key)])
