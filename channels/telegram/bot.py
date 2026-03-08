@@ -224,6 +224,26 @@ class TelegramAdapter(ChannelAdapter):
             logger.error("telegram.webhook.error", url=url, error=str(e))
             return False
 
+    async def send_chat_action(self, chat_id: str, action: str = "typing") -> None:
+        """Send a chat action indicator (e.g. 'typing...').
+
+        Shows a transient status in the chat header for ~5 seconds.
+        Failures are silently ignored since this is a UX hint, not critical.
+
+        Args:
+            chat_id: Telegram chat ID.
+            action: Chat action string (default 'typing').
+        """
+        try:
+            await self._bot.send_chat_action(chat_id=int(chat_id), action=action)
+        except Exception as e:
+            logger.debug(
+                "telegram.chat_action.error",
+                chat_id=chat_id,
+                action=action,
+                error=str(e),
+            )
+
     async def answer_callback(self, callback_id: str, text: str | None = None) -> None:
         """Acknowledge a callback query (button press).
 
