@@ -102,3 +102,50 @@ def _trigger_notifications_for_new_proposicoes() -> None:
         asyncio.get_event_loop().run_until_complete(_query_and_dispatch())
     except RuntimeError:
         asyncio.run(_query_and_dispatch())
+
+
+@celery_app.task(
+    name="app.tasks.sync_proposicoes.sync_temas_proposicoes_task",
+    bind=True,
+    max_retries=3,
+)
+def sync_temas_proposicoes_task(self, limit: int | None = None) -> dict:
+    """Celery task: backfill themes for propositions with missing themes.
+
+    Calls GET /proposicoes/{id}/temas for each proposition that
+    has NULL or empty temas column.
+
+    Args:
+        limit: Max number of propositions to process (None = all).
+
+    Returns:
+        Backfill statistics dict.
+    """
+    logger.info("task.sync_temas.start", limit=limit)
+
+    async def _run() -> dict:
+        async with get_async_session() as session:
+            from app.services.sync_service import SyncService
+            service = SyncService(session)
+            stats = await service.sync_temas_backfill(limit=limit)
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logger.warning("task.sync_temas.commit_failed_rollback")
+            return stats
+
+    try:
+        result = asyncio.get_event_loop().run_until_complete(_run())
+    except RuntimeError:
+        result = asyncio.run(_run())
+
+    logger.info("task.sync_temas.complete", **result)
+
+    # Re-generate embeddings if themes were updated
+    if result.get("updated", 0) > 0:
+        from app.tasks.generate_embeddings import generate_embeddings_task
+        generate_embeddings_task.delay()
+        logger.info("task.sync_temas.triggered_embeddings")
+
+    return result

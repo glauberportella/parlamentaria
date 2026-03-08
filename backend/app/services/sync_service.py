@@ -97,6 +97,9 @@ class SyncService:
                                 else:
                                     data_apresentacao = raw_date
 
+                            # Fetch themes from dedicated endpoint
+                            temas = await self._fetch_temas(client, prop_api.id)
+
                             api_data = {
                                 "id": prop_api.id,
                                 "tipo": prop_api.siglaTipo,
@@ -106,6 +109,8 @@ class SyncService:
                                 "data_apresentacao": data_apresentacao,
                                 "situacao": "Em tramitação",
                             }
+                            if temas:
+                                api_data["temas"] = temas
                             await self.proposicao_service.upsert_from_api(api_data)
                         # Savepoint released — upsert succeeded
                         stats["created"] += 1
@@ -383,4 +388,106 @@ class SyncService:
                         stats["errors"] += 1
 
         logger.info("sync.eventos.complete", **stats)
+        return stats
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def _fetch_temas(client: CamaraClient, proposicao_id: int) -> list[str]:
+        """Fetch theme names for a proposition from the Câmara API.
+
+        Returns empty list on any error so the caller can continue.
+
+        Args:
+            client: Initialized CamaraClient.
+            proposicao_id: Proposition ID.
+
+        Returns:
+            List of theme name strings.
+        """
+        try:
+            temas_api = await client.obter_temas(proposicao_id)
+            return [t.tema for t in temas_api if t.tema]
+        except Exception as e:
+            logger.warning(
+                "sync.temas.fetch_error",
+                proposicao_id=proposicao_id,
+                error=str(e),
+            )
+            return []
+
+    # ------------------------------------------------------------------
+    # Backfill: preenche temas faltantes
+    # ------------------------------------------------------------------
+
+    async def sync_temas_backfill(self, limit: int | None = None) -> dict:
+        """Backfill themes for propositions that have no themes set.
+
+        Queries propositions with NULL or empty temas, then fetches
+        themes from GET /proposicoes/{id}/temas for each one.
+
+        Args:
+            limit: Max number of propositions to process (None = all).
+
+        Returns:
+            Dict with total, updated, skipped, and error counts.
+        """
+        from sqlalchemy import select
+
+        from app.domain.proposicao import Proposicao
+        from app.repositories.proposicao import ProposicaoRepository
+
+        stats = {"total": 0, "updated": 0, "skipped": 0, "errors": 0}
+
+        # Find propositions without themes (NULL only; empty arrays are
+        # treated as "has themes" since the field was explicitly set).
+        stmt = (
+            select(Proposicao.id)
+            .where(Proposicao.temas.is_(None))
+            .order_by(Proposicao.id.desc())
+        )
+        if limit:
+            stmt = stmt.limit(limit)
+
+        result = await self.session.execute(stmt)
+        proposicao_ids = [row[0] for row in result.all()]
+        stats["total"] = len(proposicao_ids)
+
+        if not proposicao_ids:
+            logger.info("sync.temas_backfill.nothing_to_do")
+            return stats
+
+        logger.info("sync.temas_backfill.started", total=stats["total"])
+
+        repo = ProposicaoRepository(self.session)
+
+        async with CamaraClient() as client:
+            for prop_id in proposicao_ids:
+                try:
+                    temas = await self._fetch_temas(client, prop_id)
+
+                    if not temas:
+                        stats["skipped"] += 1
+                        continue
+
+                    async with self.session.begin_nested():
+                        await repo.update_temas(prop_id, temas)
+
+                    stats["updated"] += 1
+                    logger.debug(
+                        "sync.temas_backfill.updated",
+                        proposicao_id=prop_id,
+                        temas=temas,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "sync.temas_backfill.error",
+                        proposicao_id=prop_id,
+                        error=str(e),
+                    )
+                    stats["errors"] += 1
+
+        logger.info("sync.temas_backfill.complete", **stats)
         return stats

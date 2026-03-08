@@ -297,6 +297,26 @@ async def sync_proposicoes(
     }
 
 
+@router.post("/sync/temas", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def sync_temas(
+    request: Request,
+    limit: int | None = Query(None, ge=1, le=5000, description="Máximo de proposições a processar"),
+) -> dict:
+    """Backfill themes for propositions with missing temas.
+
+    Fetches GET /proposicoes/{id}/temas from the Câmara API
+    for each proposition that has NULL or empty temas column.
+    """
+    from app.tasks.sync_proposicoes import sync_temas_proposicoes_task
+
+    sync_temas_proposicoes_task.delay(limit=limit)
+    return {
+        "status": "queued",
+        "message": f"Backfill de temas enfileirado{f' (limit={limit})' if limit else ' (todas sem temas)'}.",
+    }
+
+
 @router.post("/sync/votacoes", dependencies=[Depends(verify_api_key)])
 @limiter.limit("5/minute")
 async def sync_votacoes(request: Request) -> dict:
@@ -318,7 +338,7 @@ async def sync_all(request: Request) -> dict:
     Enqueues separate Celery tasks for: proposições, votações,
     deputados, partidos and eventos.
     """
-    from app.tasks.sync_proposicoes import sync_proposicoes_task
+    from app.tasks.sync_proposicoes import sync_proposicoes_task, sync_temas_proposicoes_task
     from app.tasks.sync_votacoes import sync_votacoes_task
     from app.tasks.sync_deputados import sync_deputados_task
     from app.tasks.sync_partidos import sync_partidos_task
@@ -329,10 +349,11 @@ async def sync_all(request: Request) -> dict:
     sync_deputados_task.delay()
     sync_partidos_task.delay()
     sync_eventos_task.delay()
+    sync_temas_proposicoes_task.delay()
 
     return {
         "status": "queued",
-        "message": "Sincronização completa enfileirada (proposições, votações, deputados, partidos, eventos).",
+        "message": "Sincronização completa enfileirada (proposições, votações, deputados, partidos, eventos, temas).",
     }
 
 

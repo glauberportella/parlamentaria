@@ -76,6 +76,26 @@ class ProposicaoRepository(BaseRepository[Proposicao]):
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def update_temas(self, proposicao_id: int, temas: list[str]) -> bool:
+        """Update the themes list of an existing proposition.
+
+        Args:
+            proposicao_id: Proposition ID.
+            temas: List of theme names.
+
+        Returns:
+            True if the proposition was found and updated.
+        """
+        from sqlalchemy import update as sql_update
+
+        stmt = (
+            sql_update(Proposicao)
+            .where(Proposicao.id == proposicao_id)
+            .values(temas=temas)
+        )
+        result = await self.session.execute(stmt)
+        return result.rowcount > 0
+
     async def listar_temas_distintos(self) -> list[str]:
         """List all distinct themes stored across all propositions.
 

@@ -502,12 +502,14 @@ class TestAdminSyncGeneralRouter:
              patch("app.tasks.sync_votacoes.sync_votacoes_task") as m2, \
              patch("app.tasks.sync_deputados.sync_deputados_task") as m3, \
              patch("app.tasks.sync_partidos.sync_partidos_task") as m4, \
-             patch("app.tasks.sync_eventos.sync_eventos_task") as m5:
+             patch("app.tasks.sync_eventos.sync_eventos_task") as m5, \
+             patch("app.tasks.sync_proposicoes.sync_temas_proposicoes_task") as m6:
             m1.delay = MagicMock()
             m2.delay = MagicMock()
             m3.delay = MagicMock()
             m4.delay = MagicMock()
             m5.delay = MagicMock()
+            m6.delay = MagicMock()
 
             resp = await client.post(
                 "/admin/sync/all",
@@ -521,6 +523,7 @@ class TestAdminSyncGeneralRouter:
             m3.delay.assert_called_once()
             m4.delay.assert_called_once()
             m5.delay.assert_called_once()
+            m6.delay.assert_called_once()
 
     async def test_sync_all_unauthorized(self, client: AsyncClient):
         resp = await client.post("/admin/sync/all")
