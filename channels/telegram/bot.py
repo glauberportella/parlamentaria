@@ -6,12 +6,15 @@ callback queries, etc.) and bridges messages to/from the ADK Runner.
 
 from __future__ import annotations
 
+import re as _re
+
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 
 from app.config import settings
 from app.logging import get_logger
 from channels.base import Button, ChannelAdapter, IncomingMessage
+from channels.telegram.formatter import split_message
 
 logger = get_logger(__name__)
 
@@ -38,27 +41,67 @@ class TelegramAdapter(ChannelAdapter):
         return self._bot
 
     async def send_message(self, chat_id: str, text: str) -> None:
-        """Send a plain text message via Telegram.
+        """Send a text message via Telegram.
 
-        Uses Markdown V2 parsing for basic formatting support.
+        Splits long messages into chunks that fit Telegram's 4096-char
+        limit and uses HTML parse mode.  If HTML parsing fails, falls
+        back to plain text (HTML tags stripped).
 
         Args:
             chat_id: Telegram chat ID.
-            text: Message text.
+            text: Message text (Telegram HTML).
+        """
+        chunks = split_message(text)
+        for chunk in chunks:
+            await self._send_html_with_fallback(int(chat_id), chunk)
+
+    async def _send_html_with_fallback(
+        self, chat_id: int, text: str, **kwargs: object
+    ) -> None:
+        """Send a single message with HTML parse mode and plain-text fallback.
+
+        If Telegram rejects the HTML (malformed tags), the message is
+        resent with all HTML tags stripped so the user still gets a reply.
+
+        Args:
+            chat_id: Telegram numeric chat ID.
+            text: Message text (Telegram HTML).
+            **kwargs: Extra keyword arguments forwarded to ``send_message``.
         """
         try:
             await self._bot.send_message(
-                chat_id=int(chat_id),
+                chat_id=chat_id,
                 text=text,
                 parse_mode=ParseMode.HTML,
+                **kwargs,
             )
         except Exception as e:
-            logger.error(
-                "telegram.send_message.error",
-                chat_id=chat_id,
-                error=str(e),
-            )
-            raise
+            error_msg = str(e).lower()
+            if "can't parse entities" in error_msg or "can&#39;t parse" in error_msg:
+                logger.warning(
+                    "telegram.send_message.html_fallback",
+                    chat_id=chat_id,
+                    error=str(e),
+                )
+                plain = _re.sub(r"<[^>]+>", "", text)
+                try:
+                    await self._bot.send_message(
+                        chat_id=chat_id, text=plain, **kwargs
+                    )
+                except Exception as inner:
+                    logger.error(
+                        "telegram.send_message.fallback_error",
+                        chat_id=chat_id,
+                        error=str(inner),
+                    )
+                    raise
+            else:
+                logger.error(
+                    "telegram.send_message.error",
+                    chat_id=chat_id,
+                    error=str(e),
+                )
+                raise
 
     async def send_rich_message(
         self, chat_id: str, text: str, buttons: list[list[Button]]
@@ -67,7 +110,7 @@ class TelegramAdapter(ChannelAdapter):
 
         Args:
             chat_id: Telegram chat ID.
-            text: Message text.
+            text: Message text (Telegram HTML).
             buttons: Rows of Button objects to display as inline keyboard.
         """
         keyboard = [
@@ -87,12 +130,26 @@ class TelegramAdapter(ChannelAdapter):
                 parse_mode=ParseMode.HTML,
             )
         except Exception as e:
-            logger.error(
-                "telegram.send_rich_message.error",
-                chat_id=chat_id,
-                error=str(e),
-            )
-            raise
+            error_msg = str(e).lower()
+            if "can't parse entities" in error_msg or "can&#39;t parse" in error_msg:
+                logger.warning(
+                    "telegram.send_rich_message.html_fallback",
+                    chat_id=chat_id,
+                    error=str(e),
+                )
+                plain = _re.sub(r"<[^>]+>", "", text)
+                await self._bot.send_message(
+                    chat_id=int(chat_id),
+                    text=plain,
+                    reply_markup=reply_markup,
+                )
+            else:
+                logger.error(
+                    "telegram.send_rich_message.error",
+                    chat_id=chat_id,
+                    error=str(e),
+                )
+                raise
 
     async def process_incoming(self, payload: dict) -> IncomingMessage | None:
         """Parse a raw Telegram webhook payload into an IncomingMessage.
