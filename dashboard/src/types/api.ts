@@ -57,6 +57,81 @@ export interface Proposicao {
   updated_at: string;
 }
 
+export interface VotoPopularResumo {
+  total: number;
+  sim: number;
+  nao: number;
+  abstencao: number;
+  percentual_sim: number;
+  percentual_nao: number;
+  percentual_abstencao: number;
+}
+
+export interface AnaliseIAResumo {
+  id: string;
+  resumo_leigo: string;
+  impacto_esperado: string;
+  areas_afetadas: string[];
+  argumentos_favor: string[];
+  argumentos_contra: string[];
+  data_geracao: string;
+  versao: number;
+}
+
+export interface ComparativoResumo {
+  id: string;
+  resultado_camara: "APROVADO" | "REJEITADO";
+  votos_camara_sim: number;
+  votos_camara_nao: number;
+  alinhamento: number;
+  resumo_ia: string | null;
+  data_geracao: string;
+}
+
+export interface ProposicaoListItem {
+  id: number;
+  tipo: string;
+  numero: number;
+  ano: number;
+  ementa: string;
+  situacao: string | null;
+  temas: string[] | null;
+  data_apresentacao: string | null;
+  resumo_ia: string | null;
+  votos: VotoPopularResumo;
+  tem_analise: boolean;
+  tem_comparativo: boolean;
+}
+
+export interface ProposicaoDetalhe {
+  id: number;
+  tipo: string;
+  numero: number;
+  ano: number;
+  ementa: string;
+  texto_completo_url: string | null;
+  situacao: string | null;
+  temas: string[] | null;
+  autores: Record<string, unknown>[] | null;
+  data_apresentacao: string | null;
+  resumo_ia: string | null;
+  ultima_sincronizacao: string | null;
+  votos: VotoPopularResumo;
+  analise: AnaliseIAResumo | null;
+  comparativo: ComparativoResumo | null;
+}
+
+export interface ProposicoesFilters {
+  tema?: string;
+  tipo?: string;
+  ano?: number;
+  situacao?: string;
+  busca?: string;
+  ordenar?: "recentes" | "votos_desc" | "votos_asc" | "ano_desc";
+  pagina?: number;
+  itens?: number;
+}
+
 export interface AnaliseIA {
   id: string;
   proposicao_id: number;

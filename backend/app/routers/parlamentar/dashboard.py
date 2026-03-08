@@ -1,12 +1,13 @@
 """Dashboard data endpoints for the parliamentarian dashboard.
 
 Provides aggregated KPIs, charts, alerts, and ranking data.
+Response format aligns exactly with the frontend TypeScript types.
 """
 
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import func, select, case, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,33 +27,25 @@ router = APIRouter(prefix="/dashboard", tags=["parlamentar-dashboard"])
 
 
 # ──────────────────────────────────────────────
-#  Response schemas
+#  Response schemas — aligned with frontend types
 # ──────────────────────────────────────────────
 
 
-class KpiData(BaseModel):
-    """Key performance indicators for the dashboard."""
+class DashboardKPIs(BaseModel):
+    """KPIs matching frontend DashboardKPIs type."""
 
-    total_proposicoes: int = 0
-    total_eleitores: int = 0
-    total_votos: int = 0
+    total_proposicoes_ativas: int = 0
+    total_eleitores_cadastrados: int = 0
+    total_votos_populares: int = 0
+    total_comparativos: int = 0
     alinhamento_medio: float = 0.0
-    proposicoes_delta: int = Field(0, description="Variação vs período anterior")
-    eleitores_delta: int = Field(0, description="Novos eleitores no período")
-    votos_delta: int = Field(0, description="Votos no período")
+    taxa_participacao: float = 0.0
 
 
-class TemaAtivo(BaseModel):
-    """Active tema with vote count."""
+class ProposicaoRankingItem(BaseModel):
+    """Proposição ranking matching frontend ProposicaoRanking type."""
 
-    tema: str
-    contagem: int
-
-
-class ProposicaoRanking(BaseModel):
-    """Proposição ranked by popular votes."""
-
-    id: int
+    proposicao_id: int
     tipo: str
     numero: int
     ano: int
@@ -63,23 +56,37 @@ class ProposicaoRanking(BaseModel):
     alinhamento: float | None = None
 
 
-class AlertaItem(BaseModel):
-    """A dashboard alert."""
+class TemaAtivoItem(BaseModel):
+    """Active tema matching frontend TemaAtivo type."""
 
-    id: str
-    titulo: str
-    descricao: str
+    tema: str
+    total_votos: int
+    total_proposicoes: int = 0
+
+
+class DashboardTendencias(BaseModel):
+    """Tendências matching frontend DashboardTendencias type."""
+
+    votos_ultimos_7_dias: int = 0
+    novos_eleitores_ultimos_7_dias: int = 0
+    proposicoes_mais_votadas: list[ProposicaoRankingItem] = []
+    temas_mais_ativos: list[TemaAtivoItem] = []
+
+
+class DashboardAlertaItem(BaseModel):
+    """Alert matching frontend DashboardAlerta type."""
+
+    tipo: str
+    mensagem: str
     urgencia: str = "media"  # alta, media, baixa
-    data: datetime
 
 
 class DashboardResumo(BaseModel):
-    """Complete dashboard summary for the parlamentar."""
+    """Complete dashboard summary matching frontend DashboardResumo type."""
 
-    kpis: KpiData
-    temas_ativos: list[TemaAtivo]
-    proposicoes_ranking: list[ProposicaoRanking]
-    alertas: list[AlertaItem]
+    kpis: DashboardKPIs
+    tendencias: DashboardTendencias
+    alertas: list[DashboardAlertaItem]
 
 
 # ──────────────────────────────────────────────
@@ -92,82 +99,101 @@ async def get_dashboard_resumo(
     current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
     db: AsyncSession = Depends(get_db),
 ) -> DashboardResumo:
-    """Aggregated dashboard data: KPIs, themes, ranking, and alerts."""
+    """Aggregated dashboard data: KPIs, tendências, and alerts."""
     now = datetime.now(timezone.utc)
-    period_start = now - timedelta(days=30)
-    prev_period_start = period_start - timedelta(days=30)
+    period_30d = now - timedelta(days=30)
+    period_7d = now - timedelta(days=7)
 
     # ── KPI queries ──
 
-    # Total proposições
-    total_prop_result = await db.execute(select(func.count(Proposicao.id)))
-    total_proposicoes = total_prop_result.scalar() or 0
+    total_proposicoes = (
+        await db.execute(select(func.count(Proposicao.id)))
+    ).scalar() or 0
 
-    # Proposições no período (delta)
-    prop_delta_result = await db.execute(
-        select(func.count(Proposicao.id)).where(
-            Proposicao.data_apresentacao >= period_start.date()
+    total_eleitores = (
+        await db.execute(select(func.count(Eleitor.id)))
+    ).scalar() or 0
+
+    total_votos = (
+        await db.execute(select(func.count(VotoPopular.id)))
+    ).scalar() or 0
+
+    total_comparativos = (
+        await db.execute(select(func.count(ComparativoVotacao.id)))
+    ).scalar() or 0
+
+    alinhamento_medio = round(
+        float(
+            (
+                await db.execute(
+                    select(func.avg(ComparativoVotacao.alinhamento))
+                )
+            ).scalar()
+            or 0.0
+        ),
+        2,
+    )
+
+    # Taxa de participação: eleitores com pelo menos 1 voto / total eleitores
+    eleitores_votantes = (
+        await db.execute(
+            select(func.count(func.distinct(VotoPopular.eleitor_id)))
         )
+    ).scalar() or 0
+    taxa_participacao = (
+        round(eleitores_votantes / total_eleitores, 2)
+        if total_eleitores > 0
+        else 0.0
     )
-    proposicoes_delta = prop_delta_result.scalar() or 0
 
-    # Total eleitores
-    total_eleitores_result = await db.execute(select(func.count(Eleitor.id)))
-    total_eleitores = total_eleitores_result.scalar() or 0
-
-    # Novos eleitores no período
-    eleitores_delta_result = await db.execute(
-        select(func.count(Eleitor.id)).where(Eleitor.data_cadastro >= period_start)
-    )
-    eleitores_delta = eleitores_delta_result.scalar() or 0
-
-    # Total votos populares
-    total_votos_result = await db.execute(select(func.count(VotoPopular.id)))
-    total_votos = total_votos_result.scalar() or 0
-
-    # Votos no período
-    votos_delta_result = await db.execute(
-        select(func.count(VotoPopular.id)).where(
-            VotoPopular.data_voto >= period_start
-        )
-    )
-    votos_delta = votos_delta_result.scalar() or 0
-
-    # Alinhamento médio (dos comparativos existentes)
-    alinhamento_result = await db.execute(
-        select(func.avg(ComparativoVotacao.alinhamento))
-    )
-    alinhamento_medio = round(float(alinhamento_result.scalar() or 0.0), 2)
-
-    kpis = KpiData(
-        total_proposicoes=total_proposicoes,
-        total_eleitores=total_eleitores,
-        total_votos=total_votos,
+    kpis = DashboardKPIs(
+        total_proposicoes_ativas=total_proposicoes,
+        total_eleitores_cadastrados=total_eleitores,
+        total_votos_populares=total_votos,
+        total_comparativos=total_comparativos,
         alinhamento_medio=alinhamento_medio,
-        proposicoes_delta=proposicoes_delta,
-        eleitores_delta=eleitores_delta,
-        votos_delta=votos_delta,
+        taxa_participacao=taxa_participacao,
     )
 
-    # ── Temas ativos (top 10 por votos nos últimos 30 dias) ──
+    # ── Tendências (últimos 7 dias) ──
 
-    temas_ativos: list[TemaAtivo] = []
+    votos_7d = (
+        await db.execute(
+            select(func.count(VotoPopular.id)).where(
+                VotoPopular.data_voto >= period_7d
+            )
+        )
+    ).scalar() or 0
+
+    novos_eleitores_7d = (
+        await db.execute(
+            select(func.count(Eleitor.id)).where(Eleitor.data_cadastro >= period_7d)
+        )
+    ).scalar() or 0
+
+    # ── Temas mais ativos (últimos 30 dias) ──
+
+    temas_ativos: list[TemaAtivoItem] = []
     try:
-        # Proposições have temas as ARRAY — we unnest and count votos
         temas_query = (
             select(
                 func.unnest(Proposicao.temas).label("tema"),
-                func.count(VotoPopular.id).label("contagem"),
+                func.count(func.distinct(VotoPopular.id)).label("total_votos"),
+                func.count(func.distinct(Proposicao.id)).label("total_proposicoes"),
             )
             .join(VotoPopular, VotoPopular.proposicao_id == Proposicao.id)
-            .where(VotoPopular.data_voto >= period_start)
+            .where(VotoPopular.data_voto >= period_30d)
             .group_by("tema")
-            .order_by(desc("contagem"))
+            .order_by(desc("total_votos"))
             .limit(10)
         )
         temas_result = await db.execute(temas_query)
         temas_ativos = [
-            TemaAtivo(tema=row.tema, contagem=row.contagem)
+            TemaAtivoItem(
+                tema=row.tema,
+                total_votos=row.total_votos,
+                total_proposicoes=row.total_proposicoes,
+            )
             for row in temas_result.all()
         ]
     except Exception:
@@ -175,7 +201,7 @@ async def get_dashboard_resumo(
 
     # ── Proposições ranking (top 10 por total de votos) ──
 
-    proposicoes_ranking: list[ProposicaoRanking] = []
+    proposicoes_ranking: list[ProposicaoRankingItem] = []
     try:
         ranking_query = (
             select(
@@ -187,17 +213,13 @@ async def get_dashboard_resumo(
                 func.count(VotoPopular.id).label("total_votos"),
                 func.round(
                     100.0
-                    * func.sum(
-                        case((VotoPopular.voto == "SIM", 1), else_=0)
-                    )
+                    * func.sum(case((VotoPopular.voto == "SIM", 1), else_=0))
                     / func.greatest(func.count(VotoPopular.id), 1),
                     1,
                 ).label("percentual_sim"),
                 func.round(
                     100.0
-                    * func.sum(
-                        case((VotoPopular.voto == "NAO", 1), else_=0)
-                    )
+                    * func.sum(case((VotoPopular.voto == "NAO", 1), else_=0))
                     / func.greatest(func.count(VotoPopular.id), 1),
                     1,
                 ).label("percentual_nao"),
@@ -209,8 +231,8 @@ async def get_dashboard_resumo(
         )
         ranking_result = await db.execute(ranking_query)
         proposicoes_ranking = [
-            ProposicaoRanking(
-                id=row.id,
+            ProposicaoRankingItem(
+                proposicao_id=row.id,
                 tipo=row.tipo,
                 numero=row.numero,
                 ano=row.ano,
@@ -224,44 +246,56 @@ async def get_dashboard_resumo(
     except Exception:
         logger.warning("dashboard.ranking_query_failed")
 
+    tendencias = DashboardTendencias(
+        votos_ultimos_7_dias=votos_7d,
+        novos_eleitores_ultimos_7_dias=novos_eleitores_7d,
+        proposicoes_mais_votadas=proposicoes_ranking,
+        temas_mais_ativos=temas_ativos,
+    )
+
     # ── Alertas recentes ──
 
-    alertas: list[AlertaItem] = []
+    alertas: list[DashboardAlertaItem] = []
     try:
-        # Votações recentes que não têm voto popular (oportunidade de engajamento)
         recent_votacoes = await db.execute(
             select(Votacao)
-            .where(Votacao.data >= period_start)
+            .where(Votacao.data >= period_30d)
             .order_by(desc(Votacao.data))
             .limit(5)
         )
         for votacao in recent_votacoes.scalars().all():
+            resultado = (
+                "Aprovado"
+                if votacao.aprovacao
+                else "Rejeitado" if votacao.aprovacao is False else "Pendente"
+            )
             alertas.append(
-                AlertaItem(
-                    id=str(votacao.id),
-                    titulo=f"Votação: {votacao.descricao[:80] if votacao.descricao else 'Sem descrição'}",
-                    descricao=f"Resultado: {'Aprovado' if votacao.aprovacao else 'Rejeitado' if votacao.aprovacao is False else 'Pendente'}",
-                    urgencia="alta" if votacao.data >= now - timedelta(days=2) else "media",
-                    data=votacao.data,
+                DashboardAlertaItem(
+                    tipo="nova_votacao",
+                    mensagem=f"{votacao.descricao[:80] if votacao.descricao else 'Votação'} — {resultado}",
+                    urgencia=(
+                        "alta"
+                        if votacao.data >= now - timedelta(days=2)
+                        else "media"
+                    ),
                 )
             )
 
-        # Novos comparativos
         recent_comparativos = await db.execute(
             select(ComparativoVotacao)
-            .where(ComparativoVotacao.data_geracao >= period_start)
+            .where(ComparativoVotacao.data_geracao >= period_30d)
             .order_by(desc(ComparativoVotacao.data_geracao))
             .limit(3)
         )
         for comp in recent_comparativos.scalars().all():
-            alinhamento_pct = round(comp.alinhamento * 100, 1) if comp.alinhamento else 0
+            alinhamento_pct = (
+                round(comp.alinhamento * 100, 1) if comp.alinhamento else 0
+            )
             alertas.append(
-                AlertaItem(
-                    id=str(comp.id),
-                    titulo=f"Comparativo: Proposição {comp.proposicao_id}",
-                    descricao=f"Alinhamento popular: {alinhamento_pct}%",
+                DashboardAlertaItem(
+                    tipo="comparativo",
+                    mensagem=f"Comparativo Proposição {comp.proposicao_id} — Alinhamento: {alinhamento_pct}%",
                     urgencia="baixa",
-                    data=comp.data_geracao,
                 )
             )
     except Exception:
@@ -269,7 +303,6 @@ async def get_dashboard_resumo(
 
     return DashboardResumo(
         kpis=kpis,
-        temas_ativos=temas_ativos,
-        proposicoes_ranking=proposicoes_ranking,
+        tendencias=tendencias,
         alertas=alertas,
     )

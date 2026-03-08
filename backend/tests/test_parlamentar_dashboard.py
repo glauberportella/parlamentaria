@@ -1,7 +1,7 @@
 """Tests for the parliamentarian dashboard: auth service, routers, and JWT flows."""
 
 import secrets
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -480,7 +480,7 @@ class TestDashboardRouter:
         client: AsyncClient,
         parlamentar_user: ParlamentarUser,
     ) -> None:
-        """GET /parlamentar/dashboard/resumo returns dashboard data."""
+        """GET /parlamentar/dashboard/resumo returns dashboard data with new schema."""
         access = ParlamentarAuthService.create_access_token(parlamentar_user)
 
         response = await client.get(
@@ -491,18 +491,492 @@ class TestDashboardRouter:
         assert response.status_code == 200
         data = response.json()
         assert "kpis" in data
-        assert "temas_ativos" in data
-        assert "proposicoes_ranking" in data
+        assert "tendencias" in data
         assert "alertas" in data
 
-        # KPIs should have expected keys
+        # KPIs should have expected keys aligned with frontend types
         kpis = data["kpis"]
-        assert "total_proposicoes" in kpis
-        assert "total_eleitores" in kpis
-        assert "total_votos" in kpis
+        assert "total_proposicoes_ativas" in kpis
+        assert "total_eleitores_cadastrados" in kpis
+        assert "total_votos_populares" in kpis
+        assert "total_comparativos" in kpis
         assert "alinhamento_medio" in kpis
+        assert "taxa_participacao" in kpis
+
+        # Tendencias structure
+        tendencias = data["tendencias"]
+        assert "votos_ultimos_7_dias" in tendencias
+        assert "novos_eleitores_ultimos_7_dias" in tendencias
+        assert "proposicoes_mais_votadas" in tendencias
+        assert "temas_mais_ativos" in tendencias
+        assert isinstance(tendencias["proposicoes_mais_votadas"], list)
+        assert isinstance(tendencias["temas_mais_ativos"], list)
+
+        # Alertas is a list
+        assert isinstance(data["alertas"], list)
+
+    async def test_resumo_empty_database(
+        self,
+        client: AsyncClient,
+        parlamentar_user: ParlamentarUser,
+    ) -> None:
+        """GET /parlamentar/dashboard/resumo with empty DB returns zeroed KPIs."""
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+
+        response = await client.get(
+            "/parlamentar/dashboard/resumo",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        assert response.status_code == 200
+        kpis = response.json()["kpis"]
+        assert kpis["total_proposicoes_ativas"] == 0
+        assert kpis["total_eleitores_cadastrados"] == 0
+        assert kpis["total_votos_populares"] == 0
+        assert kpis["total_comparativos"] == 0
+        assert kpis["alinhamento_medio"] == 0.0
+        assert kpis["taxa_participacao"] == 0.0
+
+    async def test_resumo_with_data(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+        sample_proposicao_data: dict,
+        sample_eleitor_data: dict,
+    ) -> None:
+        """GET /parlamentar/dashboard/resumo reflects actual data in DB."""
+        from app.domain.proposicao import Proposicao
+        from app.domain.eleitor import Eleitor
+        from app.domain.voto_popular import VotoPopular, VotoEnum
+
+        # Create proposição + eleitor + voto
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        eleitor = Eleitor(**sample_eleitor_data)
+        db_session.add(eleitor)
+        await db_session.flush()
+
+        voto = VotoPopular(
+            eleitor_id=eleitor.id,
+            proposicao_id=prop.id,
+            voto=VotoEnum.SIM,
+        )
+        db_session.add(voto)
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            "/parlamentar/dashboard/resumo",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        assert response.status_code == 200
+        kpis = response.json()["kpis"]
+        assert kpis["total_proposicoes_ativas"] == 1
+        assert kpis["total_eleitores_cadastrados"] == 1
+        assert kpis["total_votos_populares"] == 1
+        assert kpis["taxa_participacao"] == 1.0
 
     async def test_resumo_unauthenticated(self, client: AsyncClient) -> None:
         """GET /parlamentar/dashboard/resumo without auth returns 422."""
         response = await client.get("/parlamentar/dashboard/resumo")
+        assert response.status_code == 422
+
+
+# ===========================================================================
+# Integration Tests — Proposições Router
+# ===========================================================================
+
+
+class TestProposicoesListRouter:
+    """Test GET /parlamentar/proposicoes listing endpoint."""
+
+    async def test_list_empty(
+        self,
+        client: AsyncClient,
+        parlamentar_user: ParlamentarUser,
+    ) -> None:
+        """Empty DB returns paginated response with zero items."""
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+
+        response = await client.get(
+            "/parlamentar/proposicoes",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert data["items"] == []
+        assert data["pagina"] == 1
+        assert data["itens_por_pagina"] == 20
+
+    async def test_list_with_proposicao(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+        sample_proposicao_data: dict,
+    ) -> None:
+        """Lists proposição with enriched vote data."""
+        from app.domain.proposicao import Proposicao
+
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            "/parlamentar/proposicoes",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+
+        item = data["items"][0]
+        assert item["id"] == sample_proposicao_data["id"]
+        assert item["tipo"] == "PL"
+        assert item["numero"] == 100
+        assert item["ano"] == 2024
+        assert "votos" in item
+        assert item["votos"]["total"] == 0
+        assert item["tem_analise"] is False
+        assert item["tem_comparativo"] is False
+
+    async def test_list_with_votes(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+        sample_proposicao_data: dict,
+        sample_eleitor_data: dict,
+    ) -> None:
+        """Lists proposição with aggregated vote data."""
+        from app.domain.proposicao import Proposicao
+        from app.domain.eleitor import Eleitor
+        from app.domain.voto_popular import VotoPopular, VotoEnum
+
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        eleitor = Eleitor(**sample_eleitor_data)
+        db_session.add(eleitor)
+        await db_session.flush()
+
+        voto = VotoPopular(
+            eleitor_id=eleitor.id,
+            proposicao_id=prop.id,
+            voto=VotoEnum.SIM,
+        )
+        db_session.add(voto)
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            "/parlamentar/proposicoes",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        votos = data["items"][0]["votos"]
+        assert votos["total"] == 1
+        assert votos["sim"] == 1
+        assert votos["nao"] == 0
+        assert votos["percentual_sim"] == 100.0
+
+    async def test_list_filter_by_tipo(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+    ) -> None:
+        """Filter by tipo returns only matching proposições."""
+        from app.domain.proposicao import Proposicao
+
+        pl = Proposicao(id=1, tipo="PL", numero=1, ano=2024, ementa="PL test", data_apresentacao=date(2024, 1, 1), situacao="Em tramitação")
+        pec = Proposicao(id=2, tipo="PEC", numero=2, ano=2024, ementa="PEC test", data_apresentacao=date(2024, 1, 1), situacao="Em tramitação")
+        db_session.add_all([pl, pec])
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            "/parlamentar/proposicoes?tipo=PL",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["tipo"] == "PL"
+
+    async def test_list_filter_by_ano(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+    ) -> None:
+        """Filter by ano returns only matching proposições."""
+        from app.domain.proposicao import Proposicao
+
+        p1 = Proposicao(id=1, tipo="PL", numero=1, ano=2023, ementa="old", data_apresentacao=date(2023, 1, 1), situacao="Arquivada")
+        p2 = Proposicao(id=2, tipo="PL", numero=2, ano=2024, ementa="new", data_apresentacao=date(2024, 1, 1), situacao="Em tramitação")
+        db_session.add_all([p1, p2])
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            "/parlamentar/proposicoes?ano=2024",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["ano"] == 2024
+
+    async def test_list_filter_by_busca(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+    ) -> None:
+        """Busca filter searches in ementa."""
+        from app.domain.proposicao import Proposicao
+
+        p1 = Proposicao(id=1, tipo="PL", numero=1, ano=2024, ementa="Reforma tributária", data_apresentacao=date(2024, 1, 1), situacao="Em tramitação")
+        p2 = Proposicao(id=2, tipo="PL", numero=2, ano=2024, ementa="Educação pública", data_apresentacao=date(2024, 1, 1), situacao="Em tramitação")
+        db_session.add_all([p1, p2])
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            "/parlamentar/proposicoes?busca=tributária",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        assert data["total"] == 1
+        assert "tributária" in data["items"][0]["ementa"].lower()
+
+    async def test_list_pagination(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+    ) -> None:
+        """Pagination returns correct subset."""
+        from app.domain.proposicao import Proposicao
+
+        for i in range(5):
+            db_session.add(Proposicao(
+                id=i + 1, tipo="PL", numero=i + 1, ano=2024,
+                ementa=f"Proposição {i+1}", data_apresentacao=date(2024, 1, 1),
+                situacao="Em tramitação",
+            ))
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            "/parlamentar/proposicoes?pagina=2&itens=2",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        assert data["total"] == 5
+        assert len(data["items"]) == 2
+        assert data["pagina"] == 2
+        assert data["itens_por_pagina"] == 2
+
+    async def test_list_unauthenticated(self, client: AsyncClient) -> None:
+        """GET /parlamentar/proposicoes without auth returns 422."""
+        response = await client.get("/parlamentar/proposicoes")
+        assert response.status_code == 422
+
+
+class TestProposicaoDetalheRouter:
+    """Test GET /parlamentar/proposicoes/{id} detail endpoint."""
+
+    async def test_detail_found(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+        sample_proposicao_data: dict,
+    ) -> None:
+        """Returns full proposição detail."""
+        from app.domain.proposicao import Proposicao
+
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            f"/parlamentar/proposicoes/{sample_proposicao_data['id']}",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == sample_proposicao_data["id"]
+        assert data["tipo"] == "PL"
+        assert data["ementa"] == sample_proposicao_data["ementa"]
+        assert "votos" in data
+        assert data["analise"] is None
+        assert data["comparativo"] is None
+
+    async def test_detail_not_found(
+        self,
+        client: AsyncClient,
+        parlamentar_user: ParlamentarUser,
+    ) -> None:
+        """Non-existent proposição returns 404."""
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+
+        response = await client.get(
+            "/parlamentar/proposicoes/99999",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        assert response.status_code == 404
+
+    async def test_detail_with_votes(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+        sample_proposicao_data: dict,
+        sample_eleitor_data: dict,
+    ) -> None:
+        """Detail includes aggregated vote data."""
+        from app.domain.proposicao import Proposicao
+        from app.domain.eleitor import Eleitor
+        from app.domain.voto_popular import VotoPopular, VotoEnum
+
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        eleitor = Eleitor(**sample_eleitor_data)
+        db_session.add(eleitor)
+        await db_session.flush()
+
+        # Add 2 SIM + 1 NAO
+        e2_data = {**sample_eleitor_data, "email": "e2@test.com", "chat_id": "22222", "cpf_hash": "b" * 64}
+        e2 = Eleitor(**e2_data)
+        e3_data = {**sample_eleitor_data, "email": "e3@test.com", "chat_id": "33333", "cpf_hash": "c" * 64}
+        e3 = Eleitor(**e3_data)
+        db_session.add_all([e2, e3])
+        await db_session.flush()
+
+        db_session.add_all([
+            VotoPopular(eleitor_id=eleitor.id, proposicao_id=prop.id, voto=VotoEnum.SIM),
+            VotoPopular(eleitor_id=e2.id, proposicao_id=prop.id, voto=VotoEnum.SIM),
+            VotoPopular(eleitor_id=e3.id, proposicao_id=prop.id, voto=VotoEnum.NAO),
+        ])
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            f"/parlamentar/proposicoes/{prop.id}",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        votos = data["votos"]
+        assert votos["total"] == 3
+        assert votos["sim"] == 2
+        assert votos["nao"] == 1
+        assert votos["abstencao"] == 0
+        assert votos["percentual_sim"] == pytest.approx(66.7, abs=0.1)
+        assert votos["percentual_nao"] == pytest.approx(33.3, abs=0.1)
+
+    async def test_detail_with_analise(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+        sample_proposicao_data: dict,
+    ) -> None:
+        """Detail includes latest AI analysis."""
+        from app.domain.proposicao import Proposicao
+        from app.domain.analise_ia import AnaliseIA
+
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        await db_session.flush()
+
+        analise = AnaliseIA(
+            proposicao_id=prop.id,
+            resumo_leigo="Resumo acessível do PL",
+            impacto_esperado="Impacto no sistema tributário",
+            areas_afetadas=["economia", "tributos"],
+            argumentos_favor=["Simplificação"],
+            argumentos_contra=["Aumento de carga"],
+            provedor_llm="gemini",
+            modelo="gemini-2.0-flash",
+            versao=1,
+        )
+        db_session.add(analise)
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            f"/parlamentar/proposicoes/{prop.id}",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        assert data["analise"] is not None
+        assert data["analise"]["resumo_leigo"] == "Resumo acessível do PL"
+        assert data["analise"]["versao"] == 1
+        assert "economia" in data["analise"]["areas_afetadas"]
+
+    async def test_detail_with_comparativo(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        parlamentar_user: ParlamentarUser,
+        sample_proposicao_data: dict,
+        sample_votacao_data: dict,
+    ) -> None:
+        """Detail includes latest comparativo data."""
+        from app.domain.proposicao import Proposicao
+        from app.domain.votacao import Votacao
+        from app.domain.comparativo import ComparativoVotacao
+
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        votacao = Votacao(**sample_votacao_data)
+        db_session.add(votacao)
+        await db_session.flush()
+
+        comp = ComparativoVotacao(
+            proposicao_id=prop.id,
+            votacao_camara_id=votacao.id,
+            voto_popular_sim=100,
+            voto_popular_nao=50,
+            voto_popular_abstencao=10,
+            resultado_camara="APROVADO",
+            votos_camara_sim=300,
+            votos_camara_nao=150,
+            alinhamento=0.85,
+        )
+        db_session.add(comp)
+        await db_session.flush()
+
+        access = ParlamentarAuthService.create_access_token(parlamentar_user)
+        response = await client.get(
+            f"/parlamentar/proposicoes/{prop.id}",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+
+        data = response.json()
+        assert data["comparativo"] is not None
+        assert data["comparativo"]["resultado_camara"] == "APROVADO"
+        assert data["comparativo"]["alinhamento"] == 0.85
+        assert data["comparativo"]["votos_camara_sim"] == 300
+
+    async def test_detail_unauthenticated(self, client: AsyncClient) -> None:
+        """GET /parlamentar/proposicoes/{id} without auth returns 422."""
+        response = await client.get("/parlamentar/proposicoes/1")
         assert response.status_code == 422
