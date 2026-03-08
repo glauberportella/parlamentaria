@@ -151,6 +151,15 @@ class DespesaAPI(BaseModel):
 # --- Eventos ---
 
 
+class OrgaoEventoAPI(BaseModel):
+    """Orgão (body/committee) linked to an event."""
+
+    id: int | None = None
+    sigla: str | None = None
+    nome: str | None = None
+    uri: str | None = None
+
+
 class EventoResumoAPI(BaseModel):
     """Summary event from listing endpoint."""
 
@@ -161,6 +170,8 @@ class EventoResumoAPI(BaseModel):
     situacao: str | None = None
     descricaoTipo: str | None = None
     descricao: str | None = None
+    orgaos: list[OrgaoEventoAPI] | None = None
+    localCamara: dict | None = None
 
 
 class ItemPautaAPI(BaseModel):
@@ -170,7 +181,9 @@ class ItemPautaAPI(BaseModel):
     topico: str | None = None
     regime: str | None = None
     proposicao_: dict | None = Field(None, alias="proposicao_")
+    titulo: str | None = None
     situacao: str | None = None
+    codRegime: int | None = None
 
 
 # --- Partidos ---

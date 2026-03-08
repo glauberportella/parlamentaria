@@ -131,9 +131,9 @@ class TestPaginationKeyboard:
 class TestMainMenuKeyboard:
     """Tests for main menu keyboard."""
 
-    def test_has_three_rows(self):
+    def test_has_four_rows(self):
         rows = main_menu_keyboard()
-        assert len(rows) == 3
+        assert len(rows) == 4
 
     def test_all_are_button_instances(self):
         rows = main_menu_keyboard()
@@ -145,6 +145,16 @@ class TestMainMenuKeyboard:
         rows = main_menu_keyboard()
         all_callbacks = [btn.callback_data for row in rows for btn in row]
         assert "menu:proposicoes" in all_callbacks
+
+    def test_contains_agenda_option(self):
+        rows = main_menu_keyboard()
+        all_callbacks = [btn.callback_data for row in rows for btn in row]
+        assert "menu:agenda" in all_callbacks
+
+    def test_contains_notificacoes_option(self):
+        rows = main_menu_keyboard()
+        all_callbacks = [btn.callback_data for row in rows for btn in row]
+        assert "menu:notificacoes" in all_callbacks
 
 
 class TestConfirmKeyboard:
@@ -257,6 +267,24 @@ class TestHandleCommand:
         result = await handle_command(msg)
         assert "eleitor(a)" in result["text"]
 
+    @pytest.mark.asyncio
+    async def test_agenda_command_forwarded_to_agent(self):
+        msg = _make_message(text="/agenda")
+        result = await handle_command(msg)
+        assert result["handled"] is False  # forwarded to ADK agent
+
+    @pytest.mark.asyncio
+    async def test_notificacoes_command_forwarded_to_agent(self):
+        msg = _make_message(text="/notificacoes")
+        result = await handle_command(msg)
+        assert result["handled"] is False  # forwarded to ADK agent
+
+    def test_commands_dict_contains_agenda(self):
+        assert "/agenda" in COMMANDS
+
+    def test_commands_dict_contains_notificacoes(self):
+        assert "/notificacoes" in COMMANDS
+
 
 class TestHandleCallback:
     """Tests for callback query handling."""
@@ -328,6 +356,20 @@ class TestHandleCallback:
         result = await handle_callback(msg)
         assert result["text"] is not None
         assert result["to_agent"] is None
+
+    @pytest.mark.asyncio
+    async def test_menu_agenda_callback(self):
+        msg = _make_message(callback_data="menu:agenda")
+        result = await handle_callback(msg)
+        assert result["to_agent"] is not None
+        assert "agenda" in result["to_agent"].lower() or "votaç" in result["to_agent"].lower()
+
+    @pytest.mark.asyncio
+    async def test_menu_notificacoes_callback(self):
+        msg = _make_message(callback_data="menu:notificacoes")
+        result = await handle_callback(msg)
+        assert result["to_agent"] is not None
+        assert "notificaç" in result["to_agent"].lower()
 
     @pytest.mark.asyncio
     async def test_page_callback(self):

@@ -19,7 +19,7 @@ from agents.parlamentar.sub_agents.votacao_agent import votacao_agent
 from agents.parlamentar.sub_agents.deputado_agent import deputado_agent
 from agents.parlamentar.sub_agents.eleitor_agent import eleitor_agent
 from agents.parlamentar.sub_agents.publicacao_agent import publicacao_agent
-from agents.parlamentar.tools.camara_tools import buscar_eventos_pauta
+from agents.parlamentar.tools.camara_tools import buscar_eventos_pauta, consultar_agenda_votacoes
 
 root_agent = LlmAgent(
     name="ParlamentarAgent",
@@ -33,7 +33,7 @@ root_agent = LlmAgent(
         eleitor_agent,
         publicacao_agent,
     ],
-    # Root agent also has a direct tool for agenda/events
-    tools=[buscar_eventos_pauta],
+    # Root agent also has direct tools for agenda/events
+    tools=[buscar_eventos_pauta, consultar_agenda_votacoes],
     output_key="last_response",
 )

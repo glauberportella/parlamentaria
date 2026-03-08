@@ -63,6 +63,7 @@ class TestAgentStructure:
 
         tool_names = [t.__name__ if callable(t) else str(t) for t in root_agent.tools]
         assert "buscar_eventos_pauta" in tool_names
+        assert "consultar_agenda_votacoes" in tool_names
 
     def test_sub_agent_names_unique(self):
         from agents.parlamentar.agent import root_agent
@@ -409,11 +410,14 @@ class TestCamaraTools:
 
     @pytest.mark.asyncio
     async def test_buscar_eventos_pauta_success(self):
+        mock_orgao = MagicMock(sigla="PLEN", nome="Plenário")
         mock_eventos = [
             MagicMock(
                 id=1, dataHoraInicio="2024-03-01T10:00:00",
+                dataHoraFim="2024-03-01T18:00:00",
                 descricao="Sessão Plenária", situacao="Convocada",
                 descricaoTipo="Sessão Deliberativa",
+                orgaos=[mock_orgao], localCamara=None,
             ),
         ]
 
@@ -427,6 +431,144 @@ class TestCamaraTools:
             assert result["status"] == "success"
             assert len(result["eventos"]) == 1
             assert result["eventos"][0]["tipo"] == "Sessão Deliberativa"
+            assert result["eventos"][0]["orgaos"][0]["sigla"] == "PLEN"
+            assert "periodo" in result
+
+    @pytest.mark.asyncio
+    async def test_buscar_eventos_pauta_filter_tipo(self):
+        mock_eventos = [
+            MagicMock(
+                id=1, dataHoraInicio="2024-03-01T10:00:00",
+                dataHoraFim="2024-03-01T18:00:00",
+                descricao="Sessão Plenária", situacao="Convocada",
+                descricaoTipo="Sessão Deliberativa",
+                orgaos=[], localCamara=None,
+            ),
+            MagicMock(
+                id=2, dataHoraInicio="2024-03-02T10:00:00",
+                dataHoraFim="2024-03-02T12:00:00",
+                descricao="Audiência sobre educação", situacao="Convocada",
+                descricaoTipo="Audiência Pública",
+                orgaos=[], localCamara=None,
+            ),
+        ]
+
+        mock_class, _ = _mock_camara_client(listar_eventos=mock_eventos)
+
+        with patch("agents.parlamentar.tools.camara_tools.CamaraClient", mock_class):
+            from agents.parlamentar.tools.camara_tools import buscar_eventos_pauta
+
+            result = await buscar_eventos_pauta(dias=7, tipo="audiencia")
+
+            assert result["status"] == "success"
+            assert len(result["eventos"]) == 1
+            assert result["eventos"][0]["tipo"] == "Audiência Pública"
+
+    @pytest.mark.asyncio
+    async def test_buscar_eventos_pauta_error(self):
+        mock_class = MagicMock()
+        mock_instance = MagicMock()
+        mock_instance.__aenter__ = AsyncMock(side_effect=Exception("Connection error"))
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_class.return_value = mock_instance
+
+        with patch("agents.parlamentar.tools.camara_tools.CamaraClient", mock_class):
+            from agents.parlamentar.tools.camara_tools import buscar_eventos_pauta
+
+            result = await buscar_eventos_pauta(dias=7)
+
+            assert result["status"] == "error"
+            assert "str(e)" not in result.get("error", "")  # No raw exception leak
+
+    @pytest.mark.asyncio
+    async def test_consultar_agenda_votacoes_success(self):
+        mock_orgao = MagicMock(sigla="PLEN", nome="Plenário")
+        mock_eventos = [
+            MagicMock(
+                id=10, dataHoraInicio="2024-03-05T14:00:00",
+                dataHoraFim="2024-03-05T23:00:00",
+                descricao="Sessão Deliberativa", situacao="Convocada",
+                descricaoTipo="Sessão Deliberativa Extraordinária",
+                orgaos=[mock_orgao], localCamara=None,
+            ),
+            MagicMock(
+                id=11, dataHoraInicio="2024-03-05T10:00:00",
+                dataHoraFim="2024-03-05T12:00:00",
+                descricao="Audiência Pública", situacao="Convocada",
+                descricaoTipo="Audiência Pública",
+                orgaos=[], localCamara=None,
+            ),
+        ]
+
+        mock_pauta = [
+            MagicMock(
+                ordem=1, topico="Discussão",
+                regime="Ordinário", situacao="A votar",
+                proposicao_={"id": 123, "siglaTipo": "PL", "numero": 456, "ano": 2024, "ementa": "Teste"},
+                titulo=None, codRegime=None,
+            ),
+            MagicMock(
+                ordem=2, topico="Requerimento",
+                regime="Urgência", situacao="Aprovado",
+                proposicao_=None,
+                titulo=None, codRegime=None,
+            ),
+        ]
+
+        mock_class, mock_client = _mock_camara_client(
+            listar_eventos=mock_eventos,
+            obter_pauta_evento=mock_pauta,
+        )
+
+        with patch("agents.parlamentar.tools.camara_tools.CamaraClient", mock_class):
+            from agents.parlamentar.tools.camara_tools import consultar_agenda_votacoes
+
+            result = await consultar_agenda_votacoes(dias=7)
+
+            assert result["status"] == "success"
+            # Only deliberative sessions should be returned (not audiência)
+            assert result["total_sessoes"] == 1
+            sessao = result["sessoes_deliberativas"][0]
+            assert sessao["id"] == 10
+            assert len(sessao["pauta"]) == 2
+            assert sessao["pauta"][0]["proposicao"]["id"] == 123
+            assert sessao["pauta"][0]["proposicao"]["tipo"] == "PL"
+            # Second item has no proposição linked
+            assert "proposicao" not in sessao["pauta"][1]
+
+    @pytest.mark.asyncio
+    async def test_consultar_agenda_votacoes_no_sessions(self):
+        mock_eventos = [
+            MagicMock(
+                id=20, dataHoraInicio="2024-03-05T10:00:00",
+                dataHoraFim="2024-03-05T12:00:00",
+                descricao="Sessão Solene", situacao="Convocada",
+                descricaoTipo="Sessão Solene",
+                orgaos=[], localCamara=None,
+            ),
+        ]
+
+        mock_class, _ = _mock_camara_client(listar_eventos=mock_eventos)
+
+        with patch("agents.parlamentar.tools.camara_tools.CamaraClient", mock_class):
+            from agents.parlamentar.tools.camara_tools import consultar_agenda_votacoes
+
+            result = await consultar_agenda_votacoes(dias=7)
+
+            assert result["status"] == "success"
+            assert result["total_sessoes"] == 0
+            assert "Nenhuma sessão deliberativa" in result["mensagem"]
+
+    @pytest.mark.asyncio
+    async def test_consultar_agenda_votacoes_caps_dias(self):
+        mock_class, _ = _mock_camara_client(listar_eventos=[])
+
+        with patch("agents.parlamentar.tools.camara_tools.CamaraClient", mock_class):
+            from agents.parlamentar.tools.camara_tools import consultar_agenda_votacoes
+
+            result = await consultar_agenda_votacoes(dias=60)  # should cap at 30
+
+            assert result["status"] == "success"
 
 
 # ---------------------------------------------------------------------------

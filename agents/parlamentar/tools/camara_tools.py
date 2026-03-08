@@ -359,13 +359,25 @@ async def obter_despesas_deputado(
         return {"status": "error", "error": str(e)}
 
 
-async def buscar_eventos_pauta(dias: int = 7) -> dict:
+def _strip_accents(text: str) -> str:
+    """Remove accents from text for accent-insensitive matching."""
+    import unicodedata
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
+async def buscar_eventos_pauta(dias: int = 7, tipo: str | None = None) -> dict:
     """Busca eventos e pautas recentes do plenário da Câmara.
 
     Mostra o que está sendo discutido e votado nos próximos dias.
 
     Args:
         dias: Número de dias à frente para buscar (padrão 7).
+        tipo: Filtrar por tipo de evento. Valores comuns:
+              'deliberativa' para sessões de votação,
+              'audiencia' para audiências públicas,
+              'solene' para sessões solenes.
+              Se omitido, retorna todos os tipos.
 
     Returns:
         Dict com status e lista de eventos com suas pautas.
@@ -380,22 +392,145 @@ async def buscar_eventos_pauta(dias: int = 7) -> dict:
             eventos = await client.listar_eventos(
                 data_inicio=data_inicio,
                 data_fim=data_fim,
+                itens=30,
             )
 
+            # Filter by type keyword if provided (accent-insensitive)
+            if tipo:
+                tipo_norm = _strip_accents(tipo.lower())
+                eventos = [
+                    e for e in eventos
+                    if e.descricaoTipo
+                    and tipo_norm in _strip_accents(e.descricaoTipo.lower())
+                ]
+
             items = []
-            for e in eventos[:10]:
+            for e in eventos[:15]:
+                orgaos_info = []
+                if e.orgaos:
+                    orgaos_info = [
+                        {"sigla": o.sigla or "", "nome": o.nome or ""}
+                        for o in e.orgaos
+                    ]
+
                 items.append({
                     "id": e.id,
                     "data_inicio": e.dataHoraInicio or "",
+                    "data_fim": e.dataHoraFim or "",
                     "descricao": e.descricao or "",
                     "situacao": e.situacao or "",
                     "tipo": e.descricaoTipo or "",
+                    "orgaos": orgaos_info,
                 })
 
             return {
                 "status": "success",
                 "eventos": items,
                 "total": len(eventos),
+                "periodo": f"{data_inicio} a {data_fim}",
             }
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível buscar eventos da Câmara no momento. Tente novamente mais tarde.",
+        }
+
+
+async def consultar_agenda_votacoes(dias: int = 7) -> dict:
+    """Consulta a agenda de votações do plenário da Câmara dos Deputados.
+
+    Busca sessões deliberativas (onde ocorrem votações) e mostra as
+    proposições que estão em pauta para votação.
+
+    Ideal para responder perguntas como:
+    - 'O que vai ser votado esta semana?'
+    - 'Qual a pauta do plenário?'
+    - 'Tem votação prevista para os próximos dias?'
+
+    Args:
+        dias: Número de dias à frente para buscar (padrão 7, máximo 30).
+
+    Returns:
+        Dict com sessões deliberativas e suas pautas detalhadas.
+    """
+    try:
+        from datetime import datetime, timedelta
+
+        dias = min(dias, 30)
+        data_inicio = datetime.now().strftime("%Y-%m-%d")
+        data_fim = (datetime.now() + timedelta(days=dias)).strftime("%Y-%m-%d")
+
+        async with CamaraClient() as client:
+            eventos = await client.listar_eventos(
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+                itens=50,
+            )
+
+            # Filter for deliberative sessions (where voting happens)
+            sessoes_deliberativas = [
+                e for e in eventos
+                if e.descricaoTipo
+                and "deliberativ" in e.descricaoTipo.lower()
+            ]
+
+            sessoes = []
+            for sessao in sessoes_deliberativas[:5]:
+                # Fetch detailed pauta for each deliberative session
+                try:
+                    pauta_items = await client.obter_pauta_evento(sessao.id)
+                except Exception:
+                    pauta_items = []
+
+                pauta_formatada = []
+                for item in pauta_items:
+                    pauta_entry: dict = {
+                        "ordem": item.ordem,
+                        "topico": item.topico or "",
+                        "regime": item.regime or "",
+                        "situacao": item.situacao or "",
+                    }
+                    # Include linked proposition if available
+                    if item.proposicao_:
+                        prop = item.proposicao_
+                        pauta_entry["proposicao"] = {
+                            "id": prop.get("id"),
+                            "tipo": prop.get("siglaTipo", ""),
+                            "numero": prop.get("numero"),
+                            "ano": prop.get("ano"),
+                            "ementa": prop.get("ementa", ""),
+                        }
+                    pauta_formatada.append(pauta_entry)
+
+                orgaos_nomes = []
+                if sessao.orgaos:
+                    orgaos_nomes = [o.sigla or o.nome or "" for o in sessao.orgaos]
+
+                sessoes.append({
+                    "id": sessao.id,
+                    "data": sessao.dataHoraInicio or "",
+                    "descricao": sessao.descricao or "",
+                    "situacao": sessao.situacao or "",
+                    "tipo": sessao.descricaoTipo or "",
+                    "orgaos": orgaos_nomes,
+                    "pauta": pauta_formatada,
+                    "total_itens_pauta": len(pauta_formatada),
+                })
+
+            return {
+                "status": "success",
+                "sessoes_deliberativas": sessoes,
+                "total_sessoes": len(sessoes),
+                "periodo": f"{data_inicio} a {data_fim}",
+                "mensagem": (
+                    f"Encontradas {len(sessoes)} sessões deliberativas "
+                    f"nos próximos {dias} dias."
+                    if sessoes
+                    else f"Nenhuma sessão deliberativa prevista nos próximos {dias} dias."
+                ),
+            }
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível consultar a agenda de votações no momento. Tente novamente mais tarde.",
+        }

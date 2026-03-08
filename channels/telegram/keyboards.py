@@ -137,7 +137,11 @@ def main_menu_keyboard() -> list[list[Button]]:
         ],
         [
             Button(text="👤 Deputados", callback_data="menu:deputados"),
+            Button(text="� Agenda", callback_data="menu:agenda"),
+        ],
+        [
             Button(text="📊 Meus Votos", callback_data="menu:meusvotos"),
+            Button(text="🔔 Notificações", callback_data="menu:notificacoes"),
         ],
         [
             Button(text="⚙️ Meu Perfil", callback_data="menu:perfil"),

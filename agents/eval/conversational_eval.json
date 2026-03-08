@@ -23,7 +23,7 @@
   {
     "name": "Pergunta sobre pauta do dia",
     "initial_prompt": "O que está na pauta do plenário esta semana?",
-    "expected_tool_calls": ["buscar_eventos_pauta"],
+    "expected_tool_calls": ["buscar_eventos_pauta", "consultar_agenda_votacoes"],
     "expected_intent": "agenda_plenario",
     "tags": ["conversacional", "eventos"]
   },

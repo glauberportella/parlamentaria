@@ -23,8 +23,10 @@ COMMANDS = {
     "/ajuda": "Mostrar ajuda e comandos disponíveis",
     "/proposicoes": "Buscar proposições em tramitação",
     "/votar": "Ver proposições disponíveis para votação",
+    "/agenda": "Ver agenda de votações do plenário",
     "/meuperfil": "Ver ou editar seu perfil de eleitor",
     "/meusvotos": "Ver histórico de seus votos populares",
+    "/notificacoes": "Configurar frequência de notificações",
     "/deputados": "Buscar informações sobre deputados",
     "/menu": "Mostrar menu principal",
     "/reset": "Reiniciar conversa do zero",
@@ -160,8 +162,10 @@ def _handle_start(message: IncomingMessage) -> dict:
         "Posso te ajudar a:\n"
         "• 📜 Entender proposições em linguagem simples\n"
         "• 🗳️ Votar nas proposições que afetam sua vida\n"
+        "• � Consultar a agenda de votações do plenário\n"
         "• 👤 Acompanhar deputados e seus gastos\n"
-        "• 📊 Comparar o voto popular com a votação real\n\n"
+        "• 📊 Comparar o voto popular com a votação real\n"
+        "• 🔔 Receber notificações sobre temas do seu interesse\n\n"
         "Basta me perguntar sobre qualquer assunto legislativo, "
         "ou use o <b>menu</b> abaixo para navegar. 👇"
     )
@@ -233,7 +237,9 @@ def _handle_menu_callback(option: str) -> dict:
         "proposicoes": "Quais são as proposições em tramitação mais recentes?",
         "votar": "Quais proposições estão disponíveis para votação popular?",
         "deputados": "Como posso buscar informações sobre deputados?",
+        "agenda": "Qual a agenda de votações do plenário para os próximos dias?",
         "meusvotos": "Mostre meu histórico de votos populares",
+        "notificacoes": "Quais são minhas configurações de notificação? Mostre as opções disponíveis.",
         "perfil": "Mostre meu perfil de eleitor",
         "ajuda": None,  # handled directly
     }
