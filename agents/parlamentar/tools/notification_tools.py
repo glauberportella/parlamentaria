@@ -6,19 +6,30 @@ Used by EleitorAgent.
 
 from __future__ import annotations
 
+from google.adk.tools import ToolContext
 
-async def verificar_notificacoes(chat_id: str) -> dict:
+
+def _get_chat_id(tool_context: ToolContext) -> str:
+    """Extract chat_id from the ADK session state."""
+    return str(tool_context.state.get("user:chat_id", ""))
+
+
+async def verificar_notificacoes(tool_context: ToolContext) -> dict:
     """Verifica o status das notificações proativas de um eleitor.
 
     Informa se as notificações estão ativas e quais temas estão configurados.
 
     Args:
-        chat_id: ID do chat do eleitor no mensageiro.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
 
     Returns:
         Dict com status das notificações e temas configurados.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         from app.db.session import async_session_factory
         from app.services.eleitor_service import EleitorService
 
@@ -69,7 +80,7 @@ async def verificar_notificacoes(chat_id: str) -> dict:
 
 
 async def configurar_frequencia_notificacao(
-    chat_id: str,
+    tool_context: ToolContext,
     frequencia: str,
     horario: int = 9,
 ) -> dict:
@@ -79,7 +90,7 @@ async def configurar_frequencia_notificacao(
     o Resumo da Câmara (digest) com novidades legislativas.
 
     Args:
-        chat_id: ID do chat do eleitor no mensageiro.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
         frequencia: Frequência desejada. Valores aceitos:
             'IMEDIATA' — alertas em tempo real + resumo diário.
             'DIARIA' — resumo diário às 8h30.
@@ -94,6 +105,10 @@ async def configurar_frequencia_notificacao(
         from app.db.session import async_session_factory
         from app.domain.eleitor import FrequenciaNotificacao
         from app.services.digest_service import DigestService
+
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
 
         # Validate frequency
         freq_map = {

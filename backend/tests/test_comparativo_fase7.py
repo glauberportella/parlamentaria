@@ -19,6 +19,17 @@ from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
 
 
 # ---------------------------------------------------------------------------
+# Helper: mock ToolContext with chat_id in session state
+# ---------------------------------------------------------------------------
+
+def _make_tool_context(chat_id: str = "123456") -> MagicMock:
+    """Create a mock ToolContext with the given chat_id in state."""
+    ctx = MagicMock()
+    ctx.state = {"user:chat_id": chat_id}
+    return ctx
+
+
+# ---------------------------------------------------------------------------
 # Helper: Seed a full cycle scenario (proposicao + votacao + votos + eleitor)
 # ---------------------------------------------------------------------------
 
@@ -802,7 +813,7 @@ class TestConsultarHistoricoVotosTool:
 
             from agents.parlamentar.tools.publicacao_tools import consultar_historico_votos
 
-            result = await consultar_historico_votos("unknown_chat")
+            result = await consultar_historico_votos(_make_tool_context("unknown_chat"))
             assert result["status"] == "not_found"
 
     async def test_no_votes(self):
@@ -829,7 +840,7 @@ class TestConsultarHistoricoVotosTool:
 
             from agents.parlamentar.tools.publicacao_tools import consultar_historico_votos
 
-            result = await consultar_historico_votos("chat123")
+            result = await consultar_historico_votos(_make_tool_context("chat123"))
             assert result["status"] == "success"
             assert result["total"] == 0
 
@@ -871,7 +882,7 @@ class TestConsultarHistoricoVotosTool:
 
             from agents.parlamentar.tools.publicacao_tools import consultar_historico_votos
 
-            result = await consultar_historico_votos("chat123")
+            result = await consultar_historico_votos(_make_tool_context("chat123"))
             assert result["status"] == "success"
             assert result["total"] == 1
             assert result["com_comparativo"] == 1
@@ -912,7 +923,7 @@ class TestConsultarHistoricoVotosTool:
 
             from agents.parlamentar.tools.publicacao_tools import consultar_historico_votos
 
-            result = await consultar_historico_votos("chat123")
+            result = await consultar_historico_votos(_make_tool_context("chat123"))
             assert result["status"] == "success"
             assert result["total"] == 1
             assert result["com_comparativo"] == 0
@@ -923,7 +934,7 @@ class TestConsultarHistoricoVotosTool:
         with patch("app.db.session.async_session_factory", side_effect=Exception("DB connection failed")):
             from agents.parlamentar.tools.publicacao_tools import consultar_historico_votos
 
-            result = await consultar_historico_votos("chat123")
+            result = await consultar_historico_votos(_make_tool_context("chat123"))
             assert result["status"] == "error"
 
 

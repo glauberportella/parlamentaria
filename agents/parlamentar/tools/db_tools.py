@@ -6,12 +6,19 @@ AI analyses, and voter data. They integrate with the service layer.
 
 from __future__ import annotations
 
+from google.adk.tools import ToolContext
+
 from app.db.session import async_session_factory
 from app.repositories.proposicao import ProposicaoRepository
 from app.services.proposicao_service import ProposicaoService
 from app.services.analise_service import AnaliseIAService
 from app.services.eleitor_service import EleitorService
 from app.schemas.eleitor import EleitorUpdate
+
+
+def _get_chat_id(tool_context: ToolContext) -> str:
+    """Extract chat_id from the ADK session state."""
+    return str(tool_context.state.get("user:chat_id", ""))
 
 
 async def consultar_proposicao_local(proposicao_id: int) -> dict:
@@ -143,18 +150,22 @@ async def obter_analise_ia(proposicao_id: int) -> dict:
         return {"status": "error", "error": str(e)}
 
 
-async def consultar_perfil_eleitor(chat_id: str) -> dict:
+async def consultar_perfil_eleitor(tool_context: ToolContext) -> dict:
     """Consulta o perfil do eleitor pelo chat_id do mensageiro.
 
     Verifica se o eleitor está cadastrado e retorna seus dados.
 
     Args:
-        chat_id: ID do chat no mensageiro (ex: Telegram user ID).
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
 
     Returns:
         Dict com status e dados do eleitor, ou 'not_found' se não cadastrado.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         async with async_session_factory() as session:
             service = EleitorService(session)
             eleitor = await service.get_by_chat_id(chat_id)
@@ -191,7 +202,7 @@ async def consultar_perfil_eleitor(chat_id: str) -> dict:
 
 
 async def cadastrar_eleitor(
-    chat_id: str,
+    tool_context: ToolContext,
     nome: str,
     uf: str,
     channel: str = "telegram",
@@ -211,7 +222,7 @@ async def cadastrar_eleitor(
     sobe para AUTO_DECLARADO automaticamente.
 
     Args:
-        chat_id: ID do chat no mensageiro.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
         nome: Nome completo do eleitor.
         uf: Sigla do estado (2 letras, ex: 'SP', 'RJ').
         channel: Canal de mensageria ('telegram' ou 'whatsapp').
@@ -223,6 +234,10 @@ async def cadastrar_eleitor(
         Dict com status, dados do eleitor e informação de elegibilidade.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         from datetime import date as _date
 
         ufs_validas = [
@@ -308,7 +323,7 @@ async def cadastrar_eleitor(
 
 
 async def atualizar_temas_interesse(
-    chat_id: str,
+    tool_context: ToolContext,
     temas: str,
 ) -> dict:
     """Atualiza os temas de interesse do eleitor para notificações.
@@ -316,13 +331,17 @@ async def atualizar_temas_interesse(
     O eleitor receberá notificações sobre proposições destes temas.
 
     Args:
-        chat_id: ID do chat no mensageiro.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
         temas: Temas separados por vírgula (ex: 'saúde, educação, economia').
 
     Returns:
         Dict com status e temas atualizados.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         async with async_session_factory() as session:
             service = EleitorService(session)
             eleitor = await service.get_by_chat_id(chat_id)
@@ -348,7 +367,7 @@ async def atualizar_temas_interesse(
 
 
 async def verificar_titulo_eleitor(
-    chat_id: str,
+    tool_context: ToolContext,
     titulo: str,
 ) -> dict:
     """Verifica e registra o título de eleitor de um eleitor cadastrado.
@@ -361,13 +380,17 @@ async def verificar_titulo_eleitor(
     O eleitor deve ter um cadastro completo (nome, UF, CPF) antes.
 
     Args:
-        chat_id: ID do chat no mensageiro.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
         titulo: Número do título de eleitor (12 dígitos, somente números).
 
     Returns:
         Dict com status, resultado da validação e novo nível de verificação.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         async with async_session_factory() as session:
             service = EleitorService(session)
             eleitor = await service.get_by_chat_id(chat_id)

@@ -6,6 +6,13 @@ and provide information about RSS feed status. Used by PublicacaoAgent.
 
 from __future__ import annotations
 
+from google.adk.tools import ToolContext
+
+
+def _get_chat_id(tool_context: ToolContext) -> str:
+    """Extract chat_id from the ADK session state."""
+    return str(tool_context.state.get("user:chat_id", ""))
+
 
 async def obter_comparativo(proposicao_id: int) -> dict:
     """Obtém o comparativo entre o voto popular e o resultado parlamentar.
@@ -227,19 +234,23 @@ async def listar_comparativos_recentes(limite: int = 10) -> dict:
         return {"status": "error", "error": str(e)}
 
 
-async def consultar_historico_votos(chat_id: str) -> dict:
+async def consultar_historico_votos(tool_context: ToolContext) -> dict:
     """Consulta o histórico de votos do eleitor com resultados de comparativos.
 
     Para cada voto que o eleitor deu, mostra se a Câmara já votou
     e qual foi o alinhamento entre o voto popular e o resultado real.
 
     Args:
-        chat_id: ID do chat do eleitor no mensageiro.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
 
     Returns:
         Dict com o histórico de votos do eleitor e comparativos disponíveis.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         from app.db.session import async_session_factory
         from app.services.eleitor_service import EleitorService
         from app.services.comparativo_service import ComparativoService

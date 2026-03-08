@@ -11,14 +11,21 @@ from __future__ import annotations
 
 import uuid
 
+from google.adk.tools import ToolContext
+
 from app.db.session import async_session_factory
 from app.domain.voto_popular import VotoEnum
 from app.services.voto_popular_service import VotoPopularService
 from app.services.eleitor_service import EleitorService
 
 
+def _get_chat_id(tool_context: ToolContext) -> str:
+    """Extract chat_id from the ADK session state."""
+    return str(tool_context.state.get("user:chat_id", ""))
+
+
 async def registrar_voto(
-    chat_id: str,
+    tool_context: ToolContext,
     proposicao_id: int,
     voto: str,
     justificativa: str = "",
@@ -36,7 +43,7 @@ async def registrar_voto(
       resultado oficial mas fica visível como opinião.
 
     Args:
-        chat_id: ID do chat do eleitor no mensageiro.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
         proposicao_id: ID da proposição legislativa.
         voto: Voto do eleitor: 'SIM', 'NAO' ou 'ABSTENCAO'.
         justificativa: Texto opcional explicando o motivo do voto.
@@ -45,6 +52,10 @@ async def registrar_voto(
         Dict com status da operação, tipo do voto e confirmação.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         # Validate voto
         voto_upper = voto.upper().strip()
         voto_map = {"SIM": VotoEnum.SIM, "NAO": VotoEnum.NAO, "ABSTENCAO": VotoEnum.ABSTENCAO}
@@ -160,19 +171,23 @@ async def obter_resultado_votacao(proposicao_id: int) -> dict:
 
 
 async def consultar_meu_voto(
-    chat_id: str,
+    tool_context: ToolContext,
     proposicao_id: int,
 ) -> dict:
     """Verifica como o eleitor votou em uma proposição específica.
 
     Args:
-        chat_id: ID do chat do eleitor.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
         proposicao_id: ID da proposição.
 
     Returns:
         Dict com status e o voto do eleitor, ou mensagem se não votou.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         async with async_session_factory() as session:
             eleitor_service = EleitorService(session)
             eleitor = await eleitor_service.get_by_chat_id(chat_id)
@@ -206,7 +221,7 @@ async def consultar_meu_voto(
 
 
 async def historico_votos_eleitor(
-    chat_id: str,
+    tool_context: ToolContext,
     limite: int = 10,
 ) -> dict:
     """Lista o histórico de votos populares de um eleitor.
@@ -214,13 +229,17 @@ async def historico_votos_eleitor(
     Mostra todas as proposições em que o eleitor votou.
 
     Args:
-        chat_id: ID do chat do eleitor.
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
         limite: Máximo de votos a retornar (padrão 10).
 
     Returns:
         Dict com status e lista de votos do eleitor.
     """
     try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
         async with async_session_factory() as session:
             eleitor_service = EleitorService(session)
             eleitor = await eleitor_service.get_by_chat_id(chat_id)

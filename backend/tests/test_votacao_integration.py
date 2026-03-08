@@ -17,6 +17,14 @@ from app.domain.voto_popular import VotoEnum
 from app.services.eleitor_service import EleitorService
 from app.services.voto_popular_service import VotoPopularService
 from app.services.notification_service import NotificationService
+from unittest.mock import MagicMock
+
+
+def _make_tool_context(chat_id: str = "123456") -> MagicMock:
+    """Create a mock ToolContext with the given chat_id in state."""
+    ctx = MagicMock()
+    ctx.state = {"user:chat_id": chat_id}
+    return ctx
 
 
 @pytest.fixture
@@ -372,7 +380,7 @@ class TestVotacaoToolsIntegration:
             return_value=mock_ctx,
         ):
             result = await registrar_voto(
-                chat_id="tool_chat_001",
+                tool_context=_make_tool_context("tool_chat_001"),
                 proposicao_id=proposicao.id,
                 voto="SIM",
                 justificativa="Concordo",
@@ -395,7 +403,7 @@ class TestVotacaoToolsIntegration:
             return_value=mock_ctx,
         ):
             result = await registrar_voto(
-                chat_id="any",
+                tool_context=_make_tool_context("any"),
                 proposicao_id=1,
                 voto="TALVEZ",
             )
@@ -482,7 +490,7 @@ class TestVotacaoToolsIntegration:
             return_value=mock_ctx,
         ):
             result = await consultar_meu_voto(
-                chat_id="myvote_chat",
+                tool_context=_make_tool_context("myvote_chat"),
                 proposicao_id=proposicao.id,
             )
 
@@ -523,7 +531,7 @@ class TestVotacaoToolsIntegration:
             return_value=mock_ctx,
         ):
             result = await historico_votos_eleitor(
-                chat_id="history_chat",
+                tool_context=_make_tool_context("history_chat"),
                 limite=10,
             )
 

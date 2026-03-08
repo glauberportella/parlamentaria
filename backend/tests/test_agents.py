@@ -37,6 +37,14 @@ def _mock_camara_client(**methods):
     return mock_class, mock_client
 
 
+def _make_tool_context(chat_id: str = "123456") -> MagicMock:
+    """Create a mock ToolContext with the given chat_id in state."""
+    ctx = MagicMock()
+    state = {"user:chat_id": chat_id}
+    ctx.state = state
+    return ctx
+
+
 # ---------------------------------------------------------------------------
 # Agent Structure Tests
 # ---------------------------------------------------------------------------
@@ -698,7 +706,7 @@ class TestDBTools:
 
             from agents.parlamentar.tools.db_tools import consultar_perfil_eleitor
 
-            result = await consultar_perfil_eleitor("123456")
+            result = await consultar_perfil_eleitor(_make_tool_context("123456"))
 
             assert result["status"] == "success"
             assert result["eleitor"]["nome"] == "João Silva"
@@ -718,7 +726,7 @@ class TestDBTools:
 
             from agents.parlamentar.tools.db_tools import consultar_perfil_eleitor
 
-            result = await consultar_perfil_eleitor("unknown")
+            result = await consultar_perfil_eleitor(_make_tool_context("unknown"))
 
             assert result["status"] == "not_found"
 
@@ -726,7 +734,7 @@ class TestDBTools:
     async def test_cadastrar_eleitor_invalid_uf(self):
         from agents.parlamentar.tools.db_tools import cadastrar_eleitor
 
-        result = await cadastrar_eleitor("123", "João", "XX")
+        result = await cadastrar_eleitor(_make_tool_context("123"), "João", "XX")
 
         assert result["status"] == "error"
         assert "UF inválida" in result["error"]
@@ -750,7 +758,7 @@ class TestDBTools:
 
             from agents.parlamentar.tools.db_tools import cadastrar_eleitor
 
-            result = await cadastrar_eleitor("123", "João", "SP")
+            result = await cadastrar_eleitor(_make_tool_context("123"), "João", "SP")
 
             assert result["status"] == "success"
             assert "realizado" in result["message"].lower() or "Cadastro" in result["message"]
@@ -798,7 +806,7 @@ class TestDBTools:
 
             from agents.parlamentar.tools.db_tools import atualizar_temas_interesse
 
-            result = await atualizar_temas_interesse("123", "saúde, educação, economia")
+            result = await atualizar_temas_interesse(_make_tool_context("123"), "saúde, educação, economia")
 
             assert result["status"] == "success"
             assert "saúde" in result["temas"]
@@ -819,7 +827,7 @@ class TestDBTools:
 
             from agents.parlamentar.tools.db_tools import atualizar_temas_interesse
 
-            result = await atualizar_temas_interesse("unknown", "saúde")
+            result = await atualizar_temas_interesse(_make_tool_context("unknown"), "saúde")
 
             assert result["status"] == "not_found"
 
@@ -835,7 +843,7 @@ class TestVotacaoTools:
     async def test_registrar_voto_invalid_option(self):
         from agents.parlamentar.tools.votacao_tools import registrar_voto
 
-        result = await registrar_voto("123", 1, "TALVEZ")
+        result = await registrar_voto(_make_tool_context("123"), 1, "TALVEZ")
 
         assert result["status"] == "error"
         assert "inválido" in result["error"].lower()
@@ -855,7 +863,7 @@ class TestVotacaoTools:
 
             from agents.parlamentar.tools.votacao_tools import registrar_voto
 
-            result = await registrar_voto("unknown", 1, "SIM")
+            result = await registrar_voto(_make_tool_context("unknown"), 1, "SIM")
 
             assert result["status"] == "error"
             assert "cadastrar" in result["error"].lower()
@@ -883,7 +891,7 @@ class TestVotacaoTools:
 
             from agents.parlamentar.tools.votacao_tools import registrar_voto
 
-            result = await registrar_voto("123", 1234, "SIM")
+            result = await registrar_voto(_make_tool_context("123"), 1234, "SIM")
 
             assert result["status"] == "success"
             assert "SIM" in result["message"]
@@ -950,7 +958,7 @@ class TestVotacaoTools:
 
             from agents.parlamentar.tools.votacao_tools import consultar_meu_voto
 
-            result = await consultar_meu_voto("123", 1234)
+            result = await consultar_meu_voto(_make_tool_context("123"), 1234)
 
             assert result["status"] == "success"
 
@@ -983,7 +991,7 @@ class TestVotacaoTools:
 
             from agents.parlamentar.tools.votacao_tools import historico_votos_eleitor
 
-            result = await historico_votos_eleitor("123")
+            result = await historico_votos_eleitor(_make_tool_context("123"))
 
             assert result["status"] == "success"
             assert len(result["votos"]) == 1
@@ -1079,7 +1087,7 @@ class TestNotificationTools:
 
             from agents.parlamentar.tools.notification_tools import verificar_notificacoes
 
-            result = await verificar_notificacoes("unknown")
+            result = await verificar_notificacoes(_make_tool_context("unknown"))
 
             assert result["status"] == "not_found"
 
@@ -1105,7 +1113,7 @@ class TestNotificationTools:
 
             from agents.parlamentar.tools.notification_tools import verificar_notificacoes
 
-            result = await verificar_notificacoes("123")
+            result = await verificar_notificacoes(_make_tool_context("123"))
 
             assert result["status"] == "success"
             assert result["notificacoes"]["ativas"] is True
@@ -1133,7 +1141,7 @@ class TestNotificationTools:
 
             from agents.parlamentar.tools.notification_tools import verificar_notificacoes
 
-            result = await verificar_notificacoes("123")
+            result = await verificar_notificacoes(_make_tool_context("123"))
 
             assert result["status"] == "success"
             assert result["notificacoes"]["ativas"] is False

@@ -6,7 +6,7 @@ and the configurar_frequencia_notificacao agent tool.
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -616,7 +616,7 @@ class TestConfigurarFrequenciaTool:
             mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await configurar_frequencia_notificacao(
-                chat_id="x",
+                tool_context=MagicMock(state={"user:chat_id": "x"}),
                 frequencia="INVALIDA",
             )
             assert result["status"] == "error"
