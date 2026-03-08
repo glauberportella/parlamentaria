@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.domain.eleitor import NivelVerificacao
+from app.domain.eleitor import FrequenciaNotificacao, NivelVerificacao
 
 
 class EleitorBase(BaseModel):
@@ -26,6 +26,8 @@ class EleitorCreate(EleitorBase):
     cidadao_brasileiro: bool = False
     cpf: str | None = Field(None, description="CPF (only digits). Stored as SHA-256 hash.")
     titulo_eleitor: str | None = Field(None, description="Título de eleitor (12 digits). Stored as hash.")
+    frequencia_notificacao: FrequenciaNotificacao = FrequenciaNotificacao.SEMANAL
+    horario_preferido_notificacao: int = Field(9, ge=0, le=23, description="Preferred hour (0-23) for digest.")
 
 
 class EleitorUpdate(BaseModel):
@@ -42,6 +44,15 @@ class EleitorUpdate(BaseModel):
     cpf_hash: str | None = Field(None, description="Pre-hashed CPF (SHA-256).")
     titulo_eleitor_hash: str | None = Field(None, description="Pre-hashed título (SHA-256).")
     nivel_verificacao: NivelVerificacao | None = None
+    frequencia_notificacao: FrequenciaNotificacao | None = None
+    horario_preferido_notificacao: int | None = Field(None, ge=0, le=23)
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    """DTO for updating notification preferences via agent tool."""
+
+    frequencia_notificacao: FrequenciaNotificacao
+    horario_preferido_notificacao: int = Field(9, ge=0, le=23)
 
 
 class EleitorResponse(EleitorBase):
@@ -58,6 +69,8 @@ class EleitorResponse(EleitorBase):
     nivel_verificacao: NivelVerificacao = NivelVerificacao.NAO_VERIFICADO
     cpf_registrado: bool = False
     titulo_registrado: bool = False
+    frequencia_notificacao: FrequenciaNotificacao = FrequenciaNotificacao.SEMANAL
+    horario_preferido_notificacao: int = 9
     data_cadastro: datetime
 
     model_config = {"from_attributes": True}

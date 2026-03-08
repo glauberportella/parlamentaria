@@ -295,6 +295,7 @@ parlamentaria/
 │   │   │   ├── sync_service.py      # Sincronização com API da Câmara
 │   │   │   ├── embedding_service.py  # Geração de embeddings (Google gemini-embedding-001)
 │   │   │   ├── rag_service.py        # Indexação e busca semântica RAG
+│   │   │   ├── digest_service.py     # Motor de geração de digests periódicos
 │   │   │   ├── publicacao_service.py # Publicação RSS + dispatch webhooks
 │   │   │   └── comparativo_service.py # Comparativo voto popular vs real
 │   │   │
@@ -318,7 +319,8 @@ parlamentaria/
 │   │   │   ├── notificar_eleitores.py
 │   │   │   ├── dispatch_webhooks.py  # Dispara webhooks de saída
 │   │   │   ├── gerar_comparativos.py # Gera comparativos pop vs real
-│   │   │   └── generate_embeddings.py # Gera embeddings RAG (pós-sync e daily)
+│   │   │   ├── generate_embeddings.py # Gera embeddings RAG (pós-sync e daily)
+│   │   │   └── send_digests.py       # Envia digests semanais/diários (Celery beat)
 │   │   │
 │   │   └── db/
 │   │       ├── __init__.py
@@ -470,6 +472,9 @@ Eleitor
 ├── titulo_eleitor_hash: str | None (SHA-256, unique)
 ├── nivel_verificacao: NivelVerificacao (NAO_VERIFICADO, AUTO_DECLARADO, VERIFICADO_TITULO)
 ├── temas_interesse: list[str] | None
+├── frequencia_notificacao: FrequenciaNotificacao (IMEDIATA, DIARIA, SEMANAL, DESATIVADA) [default: SEMANAL]
+├── horario_preferido_notificacao: int (0-23, default 9)
+├── ultimo_digest_enviado: datetime | None
 ├── data_cadastro: datetime
 ├── updated_at: datetime
 └── votos: list[VotoPopular]
@@ -776,12 +781,79 @@ identificação básica):
 3. Opcionalmente valida título de eleitor → VERIFICADO_TITULO (máxima confiança)
 ```
 
-### 9.5 Módulo: Notificações Proativas
+### 9.5 Módulo: Notificações Proativas e Engajamento
 
-- Quando nova proposição relevante é sincronizada, Celery dispara task.
-- Task consulta preferências do eleitor e envia mensagem via channel adapter.
-- O eleitor pode responder e iniciar conversa sobre a proposição.
-- Respeita rate limiting: máximo N notificações por dia por eleitor.
+O sistema implementa uma **estratégia de engajamento em 3 camadas** que equilibra
+informação com respeito à atenção do eleitor:
+
+| Camada | Frequência | Público | Conteúdo |
+|--------|-----------|---------|----------|
+| **Resumo Semanal** | Segunda-feira 9h | Todos (default) | Novas proposições, highlights, comparativos, agenda |
+| **Resumo Diário** | Diário 8:30h | Opt-in | Mesmo conteúdo, filtrado por 24h |
+| **Alertas Imediatos** | Tempo real | Opt-in | Proposição relevante ao perfil + resumo diário |
+
+#### 9.5.1 Preferências de Frequência (`FrequenciaNotificacao`)
+
+Enum no modelo `Eleitor` com 4 valores:
+
+| Valor | Comportamento |
+|-------|---------------|
+| `SEMANAL` | Default para novos usuários. Resumo semanal toda segunda. |
+| `DIARIA` | Resumo diário. Mais engajado mas não invasivo. |
+| `IMEDIATA` | Alertas em tempo real + resumo diário. Para power users. |
+| `DESATIVADA` | Sem digests. Ainda recebe comparativos de proposições em que votou. |
+
+Campos adicionais no `Eleitor`:
+- `horario_preferido_notificacao: int` — hora (0-23) preferida, default 9h.
+- `ultimo_digest_enviado: datetime | None` — previne envio duplicado.
+
+#### 9.5.2 DigestService (`digest_service.py`)
+
+Motor central de geração de digests personalizados. Compõe 5 seções:
+
+1. **Temas de interesse**: proposições novas filtradas por `temas_interesse` do eleitor.
+2. **Destaques**: proposições mais votadas no período (popularidade).
+3. **Comparativos**: resultados de votos popular vs real publicados no período.
+4. **Agenda**: eventos/plenário nos próximos 7 dias.
+5. **Estatísticas**: total votos, eleitores ativos, novas proposições.
+
+Fluxo: `find_voters_for_digest()` → `generate_digest_for_voter()` → `format_digest()` → `send via channel adapter` → `update ultimo_digest_enviado`.
+
+#### 9.5.3 Celery Tasks e Schedule
+
+| Task | Schedule | Config |
+|------|----------|--------|
+| `send_weekly_digest_task` | `DIGEST_WEEKLY_DAY` (0=seg) às `DIGEST_WEEKLY_HOUR:00` | `digest_weekly_day`, `digest_weekly_hour` |
+| `send_daily_digest_task` | Diário às `DIGEST_DAILY_HOUR:DIGEST_DAILY_MINUTE` | `digest_daily_hour`, `digest_daily_minute` |
+
+Processamento em lotes (`digest_batch_size=50`) com rate limiting (`digest_max_daily_notifications=3`).
+
+#### 9.5.4 Alertas Imediatos (Filtro de Frequência)
+
+O `NotificationService.notify_voters_about_proposicao()` agora **só envia alertas
+imediatos para eleitores com `frequencia_notificacao == IMEDIATA`**. Eleitores em
+`DIARIA` ou `SEMANAL` receberão a mesma informação no próximo digest.
+
+#### 9.5.5 Tool do Agente (`configurar_frequencia_notificacao`)
+
+O `EleitorAgent` expõe a tool `configurar_frequencia_notificacao(chat_id, frequencia, horario)`
+para que o eleitor configure suas preferências via conversa natural:
+
+- "Quero receber notificações todo dia" → `DIARIA`
+- "Prefiro só o resumo semanal" → `SEMANAL`
+- "Me avise de tudo em tempo real" → `IMEDIATA`
+- "Não quero mais receber mensagens" → `DESATIVADA`
+
+#### 9.5.6 Variáveis de Ambiente (Engajamento)
+
+```bash
+DIGEST_MAX_DAILY_NOTIFICATIONS=3    # Max notificações/dia por eleitor
+DIGEST_WEEKLY_DAY=0                 # 0=segunda, 6=domingo
+DIGEST_WEEKLY_HOUR=9                # Hora do envio semanal
+DIGEST_DAILY_HOUR=8                 # Hora do envio diário
+DIGEST_DAILY_MINUTE=30              # Minuto do envio diário
+DIGEST_BATCH_SIZE=50                # Eleitores processados por lote
+```
 
 ### 9.6 Módulo: Publicação e Distribuição (`publicacao_service`)
 
@@ -1041,6 +1113,14 @@ EMBEDDING_MODEL=gemini-embedding-001   # Modelo Google Embeddings
 EMBEDDING_DIMENSIONS=3072            # Dimensões do vetor
 RAG_SIMILARITY_THRESHOLD=0.3         # Threshold mínimo cosine similarity
 RAG_MAX_RESULTS=10                   # Máximo de resultados por busca semântica
+
+# Engajamento / Digest
+DIGEST_MAX_DAILY_NOTIFICATIONS=3    # Max notificações/dia por eleitor
+DIGEST_WEEKLY_DAY=0                 # 0=segunda, 6=domingo
+DIGEST_WEEKLY_HOUR=9                # Hora do envio semanal
+DIGEST_DAILY_HOUR=8                 # Hora do envio diário
+DIGEST_DAILY_MINUTE=30              # Minuto do envio diário
+DIGEST_BATCH_SIZE=50                # Eleitores processados por lote
 
 # App
 APP_ENV=development                  # development | staging | production

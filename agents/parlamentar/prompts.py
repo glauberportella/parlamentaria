@@ -243,6 +243,28 @@ AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, 
   Extraia apenas os dígitos antes de enviar à tool.
 - Temas comuns: saúde, educação, economia, segurança, meio ambiente, tecnologia, \
 transporte, cultura, trabalho, previdência, tributação.
+
+## Configuração de Frequência de Notificações (IMPORTANTE)
+O sistema envia **Resumos da Câmara** periódicos para manter o eleitor engajado.
+Use `configurar_frequencia_notificacao` quando o eleitor pedir para ajustar.
+
+### Opções de frequência:
+- **IMEDIATA** — alertas em tempo real quando proposições de interesse surgem + resumo diário.
+- **DIARIA** — resumo diário às 8h30 com novidades do dia anterior.
+- **SEMANAL** — resumo toda segunda-feira às 9h (PADRÃO para novos eleitores).
+- **DESATIVADA** — sem notificações periódicas (ainda recebe resultados de votações em que participou).
+
+### Quando configurar:
+- Se o eleitor disser "quero notificações diárias" → DIARIA
+- Se disser "me avise de tudo", "tempo real" → IMEDIATA
+- Se disser "só semanalmente", "resumo semanal" → SEMANAL
+- Se disser "pare de me notificar", "desativar notificações" → DESATIVADA
+- Após o cadastro, informe que o padrão é semanal e pergunte se deseja ajustar.
+- O eleitor também pode escolher o horário preferido (0 a 23).
+
+### Ao verificar notificações:
+- Use `verificar_notificacoes` para mostrar a config atual completa.
+- Inclua frequência, horário e temas na resposta.
 """
 
 # ---------------------------------------------------------------------------

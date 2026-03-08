@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
 
-from app.domain.eleitor import Eleitor
+from app.domain.eleitor import Eleitor, FrequenciaNotificacao
 from app.domain.proposicao import Proposicao
 from app.domain.voto_popular import VotoPopular, VotoEnum
 from app.services.notification_service import NotificationService
@@ -40,6 +40,7 @@ async def eleitor_economia(db_session):
         chat_id="100001",
         temas_interesse=["economia", "tributos"],
         verificado=True,
+        frequencia_notificacao=FrequenciaNotificacao.IMEDIATA,
     )
     db_session.add(e)
     await db_session.flush()
@@ -58,6 +59,7 @@ async def eleitor_saude(db_session):
         chat_id="100002",
         temas_interesse=["saúde"],
         verificado=True,
+        frequencia_notificacao=FrequenciaNotificacao.IMEDIATA,
     )
     db_session.add(e)
     await db_session.flush()
@@ -76,6 +78,7 @@ async def eleitor_sem_chat(db_session):
         chat_id=None,
         temas_interesse=["economia"],
         verificado=True,
+        frequencia_notificacao=FrequenciaNotificacao.IMEDIATA,
     )
     db_session.add(e)
     await db_session.flush()

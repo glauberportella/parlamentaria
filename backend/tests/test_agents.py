@@ -943,7 +943,12 @@ class TestNotificationTools:
 
     @pytest.mark.asyncio
     async def test_verificar_notificacoes_with_temas(self):
-        mock_eleitor = MagicMock(temas_interesse=["saúde", "educação"])
+        from app.domain.eleitor import FrequenciaNotificacao as FN
+        mock_eleitor = MagicMock(
+            temas_interesse=["saúde", "educação"],
+            frequencia_notificacao=FN.SEMANAL,
+            horario_preferido_notificacao=9,
+        )
 
         mock_sf = MagicMock()
         mock_session = AsyncMock()
@@ -966,7 +971,12 @@ class TestNotificationTools:
 
     @pytest.mark.asyncio
     async def test_verificar_notificacoes_no_temas(self):
-        mock_eleitor = MagicMock(temas_interesse=[])
+        from app.domain.eleitor import FrequenciaNotificacao as FN
+        mock_eleitor = MagicMock(
+            temas_interesse=[],
+            frequencia_notificacao=FN.DESATIVADA,
+            horario_preferido_notificacao=9,
+        )
 
         mock_sf = MagicMock()
         mock_session = AsyncMock()

@@ -13,7 +13,10 @@ from agents.parlamentar.tools.db_tools import (
     atualizar_temas_interesse,
     verificar_titulo_eleitor,
 )
-from agents.parlamentar.tools.notification_tools import verificar_notificacoes
+from agents.parlamentar.tools.notification_tools import (
+    verificar_notificacoes,
+    configurar_frequencia_notificacao,
+)
 
 eleitor_agent = LlmAgent(
     name="EleitorAgent",
@@ -22,6 +25,7 @@ eleitor_agent = LlmAgent(
         "Registra novos eleitores, atualiza dados pessoais e gerencia "
         "temas de interesse para notificações proativas. "
         "Também verifica título de eleitor para aumentar nível de confiança. "
+        "Configura frequência de notificações (imediata, diária, semanal, desativada). "
         "Use quando o eleitor quiser se cadastrar, atualizar perfil, "
         "configurar notificações ou verificar título de eleitor."
     ),
@@ -33,5 +37,6 @@ eleitor_agent = LlmAgent(
         atualizar_temas_interesse,
         verificar_notificacoes,
         verificar_titulo_eleitor,
+        configurar_frequencia_notificacao,
     ],
 )

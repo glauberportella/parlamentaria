@@ -13,7 +13,7 @@ from typing import Any, Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.eleitor import Eleitor
+from app.domain.eleitor import Eleitor, FrequenciaNotificacao
 from app.domain.proposicao import Proposicao
 from app.logging import get_logger
 from app.repositories.eleitor import EleitorRepository
@@ -223,6 +223,16 @@ class NotificationService:
 
         for voter in voters:
             if not voter.chat_id:
+                stats["skipped"] += 1
+                continue
+
+            # Only send immediate alerts to voters who opted in (IMEDIATA).
+            # Voters on DIARIA/SEMANAL will get these in their digest instead.
+            if voter.frequencia_notificacao not in (
+                FrequenciaNotificacao.IMEDIATA,
+                # Also send to NAO_VERIFICADO voters who haven't set preference
+                # (their default is SEMANAL, but they might not know about digests yet)
+            ):
                 stats["skipped"] += 1
                 continue
 

@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from app.domain.eleitor import Eleitor
+from app.domain.eleitor import Eleitor, FrequenciaNotificacao
 from app.domain.proposicao import Proposicao
 from app.domain.voto_popular import VotoPopular, VotoEnum
 from app.services.notification_service import NotificationService
@@ -37,6 +37,7 @@ async def eleitor_com_temas(db_session):
         chat_id="11111111",
         temas_interesse=["economia", "saúde"],
         verificado=True,
+        frequencia_notificacao=FrequenciaNotificacao.IMEDIATA,
     )
     db_session.add(e)
     await db_session.flush()

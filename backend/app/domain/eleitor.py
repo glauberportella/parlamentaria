@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import String, Boolean, Date, DateTime, Enum, func
+from sqlalchemy import String, Boolean, Date, DateTime, Enum, Integer, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +23,23 @@ class NivelVerificacao(str, enum.Enum):
     NAO_VERIFICADO = "NAO_VERIFICADO"
     AUTO_DECLARADO = "AUTO_DECLARADO"
     VERIFICADO_TITULO = "VERIFICADO_TITULO"
+
+
+class FrequenciaNotificacao(str, enum.Enum):
+    """Notification frequency preference for periodic digests.
+
+    - IMEDIATA: Receive alerts as soon as something relevant happens
+      (existing behavior) PLUS daily digest.
+    - DIARIA: Receive a daily digest at the preferred hour.
+    - SEMANAL: Receive a weekly digest on Mondays (default for new users).
+    - DESATIVADA: No periodic digests (still receives comparison results
+      for propositions the user voted on).
+    """
+
+    IMEDIATA = "IMEDIATA"
+    DIARIA = "DIARIA"
+    SEMANAL = "SEMANAL"
+    DESATIVADA = "DESATIVADA"
 
 
 class Eleitor(Base):
@@ -78,6 +95,26 @@ class Eleitor(Base):
         default=NivelVerificacao.NAO_VERIFICADO,
         server_default="NAO_VERIFICADO",
         doc="Progressive verification level",
+    )
+
+    # --- Notification preferences (engagement) ---
+    frequencia_notificacao: Mapped[FrequenciaNotificacao] = mapped_column(
+        Enum(FrequenciaNotificacao),
+        default=FrequenciaNotificacao.SEMANAL,
+        server_default="SEMANAL",
+        doc="Preferred notification frequency: IMEDIATA, DIARIA, SEMANAL, DESATIVADA",
+    )
+    horario_preferido_notificacao: Mapped[int] = mapped_column(
+        Integer,
+        default=9,
+        server_default="9",
+        doc="Preferred hour (0-23) for receiving digest notifications",
+    )
+    ultimo_digest_enviado: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+        doc="Timestamp of most recent digest sent to prevent duplicates",
     )
 
     data_cadastro: Mapped[datetime] = mapped_column(

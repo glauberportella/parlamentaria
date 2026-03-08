@@ -11,7 +11,7 @@ import uuid
 import pytest
 from datetime import date
 
-from app.domain.eleitor import Eleitor
+from app.domain.eleitor import Eleitor, FrequenciaNotificacao
 from app.domain.proposicao import Proposicao
 from app.domain.voto_popular import VotoEnum
 from app.services.eleitor_service import EleitorService
@@ -235,6 +235,7 @@ class TestNotificationIntegration:
             channel="telegram",
             chat_id="notif_chat_001",
             temas_interesse=["Transparência"],
+            frequencia_notificacao=FrequenciaNotificacao.IMEDIATA,
         )
         db_session.add(e)
         await db_session.flush()

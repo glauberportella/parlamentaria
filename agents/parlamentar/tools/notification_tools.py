@@ -33,20 +33,99 @@ async def verificar_notificacoes(chat_id: str) -> dict:
                 }
 
             temas = eleitor.temas_interesse or []
+            freq_labels = {
+                "IMEDIATA": "imediata (alertas em tempo real + resumo diário)",
+                "DIARIA": "diária (resumo todo dia)",
+                "SEMANAL": "semanal (resumo toda segunda-feira)",
+                "DESATIVADA": "desativada",
+            }
+            freq = eleitor.frequencia_notificacao.value
+            horario = eleitor.horario_preferido_notificacao
+
             return {
                 "status": "success",
                 "notificacoes": {
-                    "ativas": len(temas) > 0,
+                    "ativas": freq != "DESATIVADA",
                     "temas": temas,
+                    "frequencia": freq,
+                    "frequencia_descricao": freq_labels.get(freq, freq),
+                    "horario_preferido": horario,
                     "mensagem": (
-                        f"Você receberá notificações sobre: {', '.join(temas)}"
-                        if temas
-                        else "Nenhum tema configurado. Informe seus temas de interesse."
+                        f"Frequência: {freq_labels.get(freq, freq)}. "
+                        f"Horário preferido: {horario}h. "
+                        + (
+                            f"Temas: {', '.join(temas)}."
+                            if temas
+                            else "Nenhum tema configurado."
+                        )
                     ),
                 },
             }
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível verificar as notificações no momento.",
+        }
+
+
+async def configurar_frequencia_notificacao(
+    chat_id: str,
+    frequencia: str,
+    horario: int = 9,
+) -> dict:
+    """Configura a frequência de notificações do eleitor.
+
+    Permite que o eleitor escolha com que frequência deseja receber
+    o Resumo da Câmara (digest) com novidades legislativas.
+
+    Args:
+        chat_id: ID do chat do eleitor no mensageiro.
+        frequencia: Frequência desejada. Valores aceitos:
+            'IMEDIATA' — alertas em tempo real + resumo diário.
+            'DIARIA' — resumo diário às 8h30.
+            'SEMANAL' — resumo toda segunda-feira às 9h (padrão).
+            'DESATIVADA' — sem notificações periódicas.
+        horario: Hora preferida para receber o resumo (0 a 23, padrão 9).
+
+    Returns:
+        Dict com status e mensagem de confirmação.
+    """
+    try:
+        from app.db.session import async_session_factory
+        from app.domain.eleitor import FrequenciaNotificacao
+        from app.services.digest_service import DigestService
+
+        # Validate frequency
+        freq_map = {
+            "IMEDIATA": FrequenciaNotificacao.IMEDIATA,
+            "DIARIA": FrequenciaNotificacao.DIARIA,
+            "SEMANAL": FrequenciaNotificacao.SEMANAL,
+            "DESATIVADA": FrequenciaNotificacao.DESATIVADA,
+        }
+        freq_upper = frequencia.upper().strip()
+        if freq_upper not in freq_map:
+            return {
+                "status": "error",
+                "error": (
+                    "Frequência inválida. Opções: "
+                    "IMEDIATA, DIARIA, SEMANAL ou DESATIVADA."
+                ),
+            }
+
+        async with async_session_factory() as session:
+            service = DigestService(session)
+            result = await service.update_notification_preferences(
+                chat_id=chat_id,
+                frequencia=freq_map[freq_upper],
+                horario=horario,
+            )
+            return result
+
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível atualizar suas preferências de notificação.",
+        }
 
 
 async def enviar_resultado_votacao(

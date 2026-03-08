@@ -20,6 +20,7 @@ celery_app = Celery(
         "app.tasks.gerar_comparativos",
         "app.tasks.generate_embeddings",
         "app.tasks.generate_analysis",
+        "app.tasks.send_digests",
     ],
 )
 
@@ -107,6 +108,28 @@ celery_app.conf.beat_schedule = {
     "reindex-embeddings-daily": {
         "task": "app.tasks.generate_embeddings.reindex_all_embeddings_task",
         "schedule": crontab(hour=3, minute=0),  # 03:00
+        "args": (),
+    },
+    # === Engagement Digests ===
+    # Daily digest: sent after morning sync completes (08:30)
+    # Targets voters with frequencia_notificacao = DIARIA or IMEDIATA
+    "send-daily-digest": {
+        "task": "app.tasks.send_digests.send_daily_digest_task",
+        "schedule": crontab(
+            hour=settings.digest_daily_hour,
+            minute=settings.digest_daily_minute,
+        ),
+        "args": (),
+    },
+    # Weekly digest: sent every Monday at 09:00
+    # Targets voters with frequencia_notificacao = SEMANAL (default)
+    "send-weekly-digest": {
+        "task": "app.tasks.send_digests.send_weekly_digest_task",
+        "schedule": crontab(
+            hour=settings.digest_weekly_hour,
+            minute=0,
+            day_of_week=settings.digest_weekly_day,
+        ),
         "args": (),
     },
 }

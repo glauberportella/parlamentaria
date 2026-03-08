@@ -59,6 +59,14 @@ class Settings(BaseSettings):
     rag_similarity_threshold: float = 0.3
     rag_max_results: int = 10
 
+    # Engagement Digests
+    digest_max_daily_notifications: int = 3
+    digest_weekly_day: int = 0  # 0=Monday, 6=Sunday
+    digest_weekly_hour: int = 9
+    digest_daily_hour: int = 8
+    digest_daily_minute: int = 30
+    digest_batch_size: int = 50
+
     @property
     def is_production(self) -> bool:
         """Check if running in production."""
