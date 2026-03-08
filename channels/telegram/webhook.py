@@ -127,6 +127,7 @@ async def telegram_webhook(
 
             # Forward to agent if needed
             if result.get("to_agent"):
+                await adapter.send_chat_action(message.chat_id)
                 agent_response = await _run_agent(message.chat_id, message.user_id, result["to_agent"])
                 formatted = format_agent_response(agent_response)
                 enhanced_text, buttons = enhance_response(formatted, result["to_agent"])
@@ -166,6 +167,7 @@ async def telegram_webhook(
             agent_text = message.text
 
         # Route to ADK agent
+        await adapter.send_chat_action(message.chat_id)
         agent_response = await _run_agent(message.chat_id, message.user_id, agent_text)
         formatted = format_agent_response(agent_response)
         enhanced_text, buttons = enhance_response(formatted, agent_text)
