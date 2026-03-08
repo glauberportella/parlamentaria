@@ -434,6 +434,85 @@ async def verificar_titulo_eleitor(
         return {"status": "error", "error": str(e)}
 
 
+async def recuperar_conta(
+    tool_context: ToolContext,
+    cpf: str,
+) -> dict:
+    """Recupera uma conta existente pelo CPF quando o eleitor já possui cadastro.
+
+    Use quando o eleitor informar que já tem cadastro mas o sistema não o
+    reconhece pelo chat atual. Isso pode acontecer quando o eleitor troca
+    de dispositivo, reinstala o aplicativo ou usa outro número no mensageiro.
+
+    O CPF é validado e convertido em hash para buscar a conta existente.
+    Se encontrada, a conta é vinculada ao chat atual automaticamente.
+
+    Args:
+        tool_context: Contexto do ADK (injetado automaticamente, contém dados da sessão).
+        cpf: CPF do eleitor (somente números, 11 dígitos, ou formatado com pontos/traço).
+
+    Returns:
+        Dict com status e dados da conta recuperada, ou mensagem de erro.
+    """
+    try:
+        chat_id = _get_chat_id(tool_context)
+        if not chat_id:
+            return {"status": "error", "error": "Sessão não identificada. Tente novamente."}
+
+        cpf_limpo = cpf.strip()
+        if not cpf_limpo:
+            return {"status": "error", "error": "Informe o CPF para recuperar a conta."}
+
+        async with async_session_factory() as session:
+            service = EleitorService(session)
+            try:
+                recovered, info = await service.vincular_conta_por_cpf(
+                    chat_id=chat_id,
+                    cpf=cpf_limpo,
+                )
+                await session.commit()
+            except Exception as err:
+                return {"status": "not_found", "message": str(err)}
+
+            nivel = recovered.nivel_verificacao
+            nivel_str = nivel.value if hasattr(nivel, "value") else str(nivel)
+            elegibilidade = EleitorService.verificar_elegibilidade(recovered)
+
+            if info.get("vinculado"):
+                msg = (
+                    f"Conta recuperada com sucesso! Bem-vindo de volta, "
+                    f"{recovered.nome}. Sua conta está vinculada a este chat."
+                )
+            else:
+                msg = (
+                    f"Sua conta já está vinculada a este chat, "
+                    f"{recovered.nome}. Nenhuma ação necessária."
+                )
+
+            return {
+                "status": "success",
+                "message": msg,
+                "eleitor": {
+                    "id": str(recovered.id),
+                    "nome": recovered.nome,
+                    "uf": recovered.uf,
+                    "verificado": recovered.verificado,
+                    "cidadao_brasileiro": recovered.cidadao_brasileiro,
+                    "elegivel": recovered.elegivel,
+                    "nivel_verificacao": nivel_str,
+                    "cpf_registrado": recovered.cpf_hash is not None,
+                    "titulo_registrado": recovered.titulo_eleitor_hash is not None,
+                    "temas_interesse": recovered.temas_interesse or [],
+                },
+                "elegibilidade": elegibilidade,
+            }
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível recuperar a conta no momento. Tente novamente.",
+        }
+
+
 async def listar_temas_disponiveis(incluir_referencia_oficial: bool = False) -> dict:
     """Lista todos os temas disponíveis para proposições legislativas.
 

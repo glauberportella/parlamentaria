@@ -303,6 +303,92 @@ class EleitorService:
         )
         return result
 
+    async def vincular_conta_por_cpf(
+        self,
+        chat_id: str,
+        cpf: str,
+        channel: str = "telegram",
+    ) -> tuple[Eleitor, dict]:
+        """Find an existing voter account by CPF and link it to a new chat_id.
+
+        This is used when a voter already has an account (e.g., registered on
+        another device or after reinstalling the app) and needs to recover it
+        by providing their CPF.  The CPF is hashed and looked up.
+
+        If found, the existing account's ``chat_id`` and ``channel`` are
+        updated.  Any orphaned stub account associated with the given
+        ``chat_id`` is removed to prevent duplicates.
+
+        Args:
+            chat_id: The new chat_id from the messaging platform.
+            cpf: CPF string (with or without formatting).
+            channel: Channel name (telegram, whatsapp).
+
+        Returns:
+            Tuple of (recovered Eleitor, info dict).
+
+        Raises:
+            ValidationException: If CPF is invalid.
+            NotFoundException: If no account is found with that CPF.
+        """
+        from app.services.validators import validar_cpf as _validar_cpf, hash_documento as _hash
+
+        is_valid, message = _validar_cpf(cpf)
+        if not is_valid:
+            raise ValidationException(detail=message)
+
+        cpf_hashed = _hash(cpf)
+        existing = await self.repo.find_by_cpf_hash(cpf_hashed)
+        if existing is None:
+            raise NotFoundException(
+                detail="Nenhuma conta encontrada com este CPF. "
+                       "Faça um novo cadastro."
+            )
+
+        # If the found account already has this chat_id, nothing to do
+        if existing.chat_id == chat_id:
+            return existing, {"vinculado": False, "motivo": "Conta já vinculada a este chat."}
+
+        # Remove orphan stub that may exist for the current chat_id
+        orphan = await self.repo.find_by_chat_id(chat_id)
+        if orphan and orphan.id != existing.id:
+            # Only delete if the orphan is a stub (no CPF, empty name)
+            if orphan.cpf_hash is None and (not orphan.nome or orphan.nome == ""):
+                await self.repo.delete(orphan)
+                logger.info(
+                    "eleitor.orphan_stub_removed",
+                    orphan_id=str(orphan.id),
+                    chat_id=chat_id,
+                )
+            else:
+                # The chat_id already belongs to another real account
+                raise ValidationException(
+                    detail="Este chat já está vinculado a outra conta. "
+                           "Não é possível recuperar a conta solicitada."
+                )
+
+        # Update chat_id on the recovered account
+        recovered = await self.repo.update(
+            existing, {"chat_id": chat_id, "channel": channel}
+        )
+        logger.info(
+            "eleitor.conta_vinculada",
+            id=str(recovered.id),
+            chat_id=chat_id,
+        )
+
+        return recovered, {
+            "vinculado": True,
+            "nome": recovered.nome,
+            "uf": recovered.uf,
+            "nivel_verificacao": (
+                recovered.nivel_verificacao.value
+                if hasattr(recovered.nivel_verificacao, "value")
+                else str(recovered.nivel_verificacao)
+            ),
+            "elegivel": recovered.elegivel,
+        }
+
     async def registrar_cpf(
         self,
         eleitor_id: uuid.UUID,

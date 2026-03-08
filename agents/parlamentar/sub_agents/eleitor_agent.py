@@ -10,6 +10,7 @@ from agents.parlamentar.prompts import ELEITOR_AGENT_INSTRUCTION
 from agents.parlamentar.tools.db_tools import (
     consultar_perfil_eleitor,
     cadastrar_eleitor,
+    recuperar_conta,
     atualizar_temas_interesse,
     verificar_titulo_eleitor,
 )
@@ -34,6 +35,7 @@ eleitor_agent = LlmAgent(
     tools=[
         consultar_perfil_eleitor,
         cadastrar_eleitor,
+        recuperar_conta,
         atualizar_temas_interesse,
         verificar_notificacoes,
         verificar_titulo_eleitor,

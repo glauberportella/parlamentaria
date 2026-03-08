@@ -125,6 +125,7 @@ class TestAgentStructure:
         tool_names = [t.__name__ if callable(t) else str(t) for t in eleitor_agent.tools]
         assert "cadastrar_eleitor" in tool_names
         assert "consultar_perfil_eleitor" in tool_names
+        assert "recuperar_conta" in tool_names
 
     def test_publicacao_agent_config(self):
         from agents.parlamentar.sub_agents.publicacao_agent import publicacao_agent
@@ -830,6 +831,143 @@ class TestDBTools:
             result = await atualizar_temas_interesse(_make_tool_context("unknown"), "saúde")
 
             assert result["status"] == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_recuperar_conta_success(self):
+        """recuperar_conta should return success when CPF matches an existing account."""
+        mock_recovered = MagicMock(
+            id=uuid.uuid4(), nome="Ana Costa", uf="SP",
+            verificado=True, cidadao_brasileiro=True,
+            elegivel=True,
+            nivel_verificacao=MagicMock(value="AUTO_DECLARADO"),
+            cpf_hash="a" * 64,
+            titulo_eleitor_hash=None,
+            temas_interesse=["saúde"],
+        )
+        info = {"vinculado": True, "nome": "Ana Costa", "uf": "SP"}
+
+        mock_sf = MagicMock()
+        mock_session = AsyncMock()
+        mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("agents.parlamentar.tools.db_tools.async_session_factory", mock_sf), \
+             patch("agents.parlamentar.tools.db_tools.EleitorService") as MockService:
+            mock_svc = AsyncMock()
+            mock_svc.vincular_conta_por_cpf = AsyncMock(return_value=(mock_recovered, info))
+            MockService.return_value = mock_svc
+            MockService.verificar_elegibilidade = MagicMock(return_value={
+                "elegivel": True, "motivos": [],
+            })
+
+            from agents.parlamentar.tools.db_tools import recuperar_conta
+
+            result = await recuperar_conta(_make_tool_context("new_chat_777"), "52998224725")
+
+            assert result["status"] == "success"
+            assert "recuperada" in result["message"].lower() or "Bem-vindo" in result["message"]
+            assert result["eleitor"]["nome"] == "Ana Costa"
+
+    @pytest.mark.asyncio
+    async def test_recuperar_conta_already_linked(self):
+        """recuperar_conta should return success with appropriate message when already linked."""
+        mock_recovered = MagicMock(
+            id=uuid.uuid4(), nome="Ana Costa", uf="SP",
+            verificado=True, cidadao_brasileiro=True,
+            elegivel=True,
+            nivel_verificacao=MagicMock(value="AUTO_DECLARADO"),
+            cpf_hash="a" * 64,
+            titulo_eleitor_hash=None,
+            temas_interesse=[],
+        )
+        info = {"vinculado": False, "motivo": "Conta já vinculada a este chat."}
+
+        mock_sf = MagicMock()
+        mock_session = AsyncMock()
+        mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("agents.parlamentar.tools.db_tools.async_session_factory", mock_sf), \
+             patch("agents.parlamentar.tools.db_tools.EleitorService") as MockService:
+            mock_svc = AsyncMock()
+            mock_svc.vincular_conta_por_cpf = AsyncMock(return_value=(mock_recovered, info))
+            MockService.return_value = mock_svc
+            MockService.verificar_elegibilidade = MagicMock(return_value={
+                "elegivel": True, "motivos": [],
+            })
+
+            from agents.parlamentar.tools.db_tools import recuperar_conta
+
+            result = await recuperar_conta(_make_tool_context("same_chat"), "52998224725")
+
+            assert result["status"] == "success"
+            assert "já" in result["message"].lower()
+
+    @pytest.mark.asyncio
+    async def test_recuperar_conta_not_found(self):
+        """recuperar_conta should return not_found when CPF is not in DB."""
+        from app.exceptions import NotFoundException
+
+        mock_sf = MagicMock()
+        mock_session = AsyncMock()
+        mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("agents.parlamentar.tools.db_tools.async_session_factory", mock_sf), \
+             patch("agents.parlamentar.tools.db_tools.EleitorService") as MockService:
+            mock_svc = AsyncMock()
+            mock_svc.vincular_conta_por_cpf = AsyncMock(
+                side_effect=NotFoundException(detail="Nenhuma conta encontrada com este CPF.")
+            )
+            MockService.return_value = mock_svc
+
+            from agents.parlamentar.tools.db_tools import recuperar_conta
+
+            result = await recuperar_conta(_make_tool_context("chat_123"), "52998224725")
+
+            assert result["status"] == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_recuperar_conta_invalid_cpf(self):
+        """recuperar_conta should return not_found for invalid CPF."""
+        from app.exceptions import ValidationException
+
+        mock_sf = MagicMock()
+        mock_session = AsyncMock()
+        mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("agents.parlamentar.tools.db_tools.async_session_factory", mock_sf), \
+             patch("agents.parlamentar.tools.db_tools.EleitorService") as MockService:
+            mock_svc = AsyncMock()
+            mock_svc.vincular_conta_por_cpf = AsyncMock(
+                side_effect=ValidationException(detail="CPF inválido.")
+            )
+            MockService.return_value = mock_svc
+
+            from agents.parlamentar.tools.db_tools import recuperar_conta
+
+            result = await recuperar_conta(_make_tool_context("chat_123"), "00000000000")
+
+            assert result["status"] == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_recuperar_conta_empty_cpf(self):
+        """recuperar_conta should return error when CPF is empty."""
+        from agents.parlamentar.tools.db_tools import recuperar_conta
+
+        result = await recuperar_conta(_make_tool_context("chat_123"), "   ")
+
+        assert result["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_recuperar_conta_no_session(self):
+        """recuperar_conta should return error when chat_id is missing."""
+        from agents.parlamentar.tools.db_tools import recuperar_conta
+
+        result = await recuperar_conta(_make_tool_context(""), "52998224725")
+
+        assert result["status"] == "error"
 
 
 # ---------------------------------------------------------------------------
