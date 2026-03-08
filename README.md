@@ -132,7 +132,7 @@ O sistema implementa **verificação progressiva** para equilibrar inclusão e i
 | **Backend** | Python 3.11+ / FastAPI | API async, webhooks, orquestração |
 | **Mensageria** | Telegram Bot API | Canal primário de interação |
 | **Banco de Dados** | PostgreSQL 16 + pgvector | Persistência relacional + busca vetorial/semântica |
-| **RAG / Embeddings** | pgvector + Google text-embedding-004 | Busca semântica sobre proposições sincronizadas |
+| **RAG / Embeddings** | pgvector + Google gemini-embedding-001 | Busca semântica sobre proposições sincronizadas |
 | **Cache / Filas** | Redis + Celery | Cache, sessões, jobs assíncronos |
 | **LLM** | Gemini (primário) via ADK | Análise e conversa — model-agnostic |
 | **Containers** | Docker + Docker Compose | Ambiente reproduzível |
@@ -226,30 +226,26 @@ parlamentaria/
 
 A Parlamentaria é um projeto de **democracia participativa sobre democracia participativa** — ela só faz sentido se for construída pela comunidade.
 
-### Quem pode contribuir
+> 📖 **Leia o [CONTRIBUTING.md](CONTRIBUTING.md)** para o guia completo de contribuição, incluindo setup do ambiente, padrões de código, testes e checklist de PR.
 
-- **Desenvolvedores** — Python, FastAPI, IA, bots, DevOps
-- **Designers** — UX conversacional, fluxos de chatbot
-- **Cientistas de dados** — análise legislativa, NLP em português
-- **Jornalistas / Comunicadores** — linguagem acessível, fact-checking
-- **Advogados / Juristas** — validação de análises de proposições
-- **Cidadãos** — testar, reportar bugs, sugerir funcionalidades, divulgar
+### Primeiros passos
 
-### Como começar
+1. **Leia o [AGENTS.md](AGENTS.md)** — fonte de verdade para arquitetura e padrões
+2. **Leia o [CONTRIBUTING.md](CONTRIBUTING.md)** — guia prático de contribuição
+3. **Escolha uma issue** — procure por labels `good first issue` ou `help wanted`
+4. **Fork + Branch** — crie uma branch `feat/`, `fix/` ou `docs/`
+5. **Implemente** — siga os padrões documentados (tipagem, testes, docstrings)
+6. **Abra um PR** — descreva o que fez, referencie a issue
 
-1. **Leia o [AGENTS.md](AGENTS.md)** — é o guia completo do projeto
-2. **Escolha uma issue** — procure por labels `good first issue` ou `help wanted`
-3. **Fork + Branch** — crie uma branch `feat/`, `fix/` ou `docs/`
-4. **Implemente** — siga os padrões do AGENTS.md (tipagem, testes, docstrings)
-5. **Abra um PR** — descreva o que fez, referencie a issue
-
-### Convenções
+### Convenções rápidas
 
 - **Commits**: [Conventional Commits](https://www.conventionalcommits.org/) — `feat: ...`, `fix: ...`, `docs: ...`
 - **Branches**: `feat/descricao`, `fix/descricao`, `docs/descricao`
 - **Testes**: todo código novo deve vir acompanhado de testes
 - **Linting**: Ruff — rode `ruff check .` antes de commitar
 - **Idioma do código**: inglês (variáveis, funções, classes) | **Documentação**: português
+
+> Para detalhes completos sobre padrões, checklist de PR, e lições aprendidas, veja [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Ideias para contribuições
 
@@ -306,7 +302,7 @@ Nenhum dado sigiloso é acessado. Toda informação é pública e de livre acess
 - [x] **Fase 6** — Publicação: RSS Feed, webhooks de saída
 - [x] **Fase 7** — Comparativo: voto popular vs real, feedback ao eleitor
 - [x] **Fase 8** — Polimento: segurança, monitoring, deploy, WhatsApp
-- [x] **RAG** — Busca semântica: pgvector, embeddings Google text-embedding-004, chunking por tipo de conteúdo
+- [x] **RAG** — Busca semântica: pgvector, embeddings Google gemini-embedding-001, chunking por tipo de conteúdo
 
 ---
 
