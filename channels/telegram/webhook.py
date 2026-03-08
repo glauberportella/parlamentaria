@@ -16,6 +16,8 @@ from app.config import settings
 from app.logging import get_logger
 from app.middleware import limiter
 from channels.telegram.bot import TelegramAdapter
+from channels.telegram.enhancer import enhance_response
+from channels.telegram.formatter import format_agent_response
 from channels.telegram.handlers import handle_callback, handle_command
 
 logger = get_logger(__name__)
@@ -126,7 +128,12 @@ async def telegram_webhook(
             # Forward to agent if needed
             if result.get("to_agent"):
                 agent_response = await _run_agent(message.chat_id, message.user_id, result["to_agent"])
-                await adapter.send_message(message.chat_id, agent_response)
+                formatted = format_agent_response(agent_response)
+                enhanced_text, buttons = enhance_response(formatted, result["to_agent"])
+                if buttons:
+                    await adapter.send_rich_message(message.chat_id, enhanced_text, buttons)
+                else:
+                    await adapter.send_message(message.chat_id, enhanced_text)
 
             return {"status": "processed"}
 
@@ -160,7 +167,12 @@ async def telegram_webhook(
 
         # Route to ADK agent
         agent_response = await _run_agent(message.chat_id, message.user_id, agent_text)
-        await adapter.send_message(message.chat_id, agent_response)
+        formatted = format_agent_response(agent_response)
+        enhanced_text, buttons = enhance_response(formatted, agent_text)
+        if buttons:
+            await adapter.send_rich_message(message.chat_id, enhanced_text, buttons)
+        else:
+            await adapter.send_message(message.chat_id, enhanced_text)
 
     except Exception as e:
         logger.error(
