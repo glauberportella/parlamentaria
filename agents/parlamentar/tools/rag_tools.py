@@ -48,6 +48,7 @@ async def busca_semantica_proposicoes(
                     "message": "Nenhuma proposição relevante encontrada para esta consulta.",
                     "proposicoes": [],
                     "total": 0,
+                    "sugestao": "Tente reformular a pergunta com outros termos ou use buscar_proposicoes com filtros exatos.",
                 }
 
             proposicoes = []
@@ -70,7 +71,10 @@ async def busca_semantica_proposicoes(
                 "total": len(proposicoes),
             }
     except Exception as e:
-        return {"status": "error", "error": str(e)}
+        return {
+            "status": "error",
+            "error": "A busca semântica não está disponível no momento. Use buscar_proposicoes como alternativa.",
+        }
 
 
 async def obter_estatisticas_rag() -> dict:
@@ -95,4 +99,7 @@ async def obter_estatisticas_rag() -> dict:
                 },
             }
     except Exception as e:
-        return {"status": "error", "error": str(e)}
+        return {
+            "status": "error",
+            "error": "Não foi possível obter as estatísticas do índice de busca no momento.",
+        }

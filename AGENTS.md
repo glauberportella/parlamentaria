@@ -1087,6 +1087,13 @@ class ExternalAPIException(AppException):
 - **Parâmetros simples**: preferir `str`, `int`, `bool` — evitar tipos complexos.
 - **Poucos parâmetros**: minimizar número de args (o LLM decide os valores).
 - **Sem side effects ocultos**: tools devem ser previsíveis e idempotentes quando possível.
+- **Mensagens de erro amigáveis**: **NUNCA retornar `str(e)` diretamente** no dict de erro. \
+Usar mensagens genéricas e orientativas que o agente possa repassar ao eleitor \
+sem expor detalhes técnicos (nomes de modelos, endpoints, stack traces). \
+Exemplo: `{"status": "error", "error": "Não foi possível buscar proposições no momento."}` \
+em vez de `{"status": "error", "error": str(e)}`. O LLM pode "alucinar" detalhes \
+técnicos do seu treinamento (ex: mencionar nomes de modelos internos) se receber \
+mensagens de erro brutas.
 
 ---
 
@@ -1324,6 +1331,8 @@ Fase 8 — Polimento
 9. **Commits devem ser atômicos** — uma feature/fix por commit.
 10. **Não existe frontend web** — toda interação do eleitor é via agentes + mensageiros.
 11. **FunctionTools devem ser simples** — poucos parâmetros, return dict, docstrings claras.
-12. **Ante qualquer dúvida**, consulte a seção relevante deste AGENTS.md.
+12. **FunctionTools nunca retornam `str(e)`** — erros devem usar mensagens amigáveis (ver seção 12.2).
+13. **Prompts dos agentes proíbem expor internos** — nomes de modelos, endpoints, tools, erros técnicos.
+14. **Ante qualquer dúvida**, consulte a seção relevante deste AGENTS.md.
 
 

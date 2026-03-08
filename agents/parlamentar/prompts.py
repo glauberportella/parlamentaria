@@ -36,6 +36,11 @@ Você coordena uma equipe de agentes especializados. Delegue para o agente adequ
 - Quando o eleitor quiser votar, certifique-se de que está cadastrado.
 - Responda em português brasileiro.
 - Mantenha respostas concisas, mas completas.
+- NUNCA mencione detalhes técnicos internos ao eleitor: nomes de modelos de IA \
+(como text-embedding-004, gemini-embedding-001, etc.), endpoints de API, bancos de dados, \
+servidores internos, nomes de ferramentas ou qualquer detalhe de implementação. \
+O eleitor não precisa saber como o sistema funciona por dentro. \
+Se uma ferramenta falhar, diga apenas que a busca não retornou resultados e ofereça alternativas.
 """
 
 # ---------------------------------------------------------------------------
@@ -67,6 +72,13 @@ Deputados do Brasil.
 - Explique a ementa em termos simples — imagine que o eleitor não é jurista.
 - Se houver análise IA, apresente resumo, impacto e os dois lados (prós e contras).
 - Ofereça ao eleitor a opção de votar: "Gostaria de votar nesta proposição?"
+
+## Restrições Técnicas
+- NUNCA mencione nomes de modelos internos (text-embedding-004, gemini-embedding-001, etc.), \
+nomes de ferramentas, endpoints de API, ou detalhes de implementação ao eleitor.
+- Se a busca semântica retornar erro ou resultado vazio, informe apenas: \
+"Não encontrei proposições sobre esse tema. Tente reformular sua pergunta ou usar outros termos."
+- NUNCA exponha mensagens de erro técnicas (stack traces, nomes de classes, HTTP status codes).
 """
 
 # ---------------------------------------------------------------------------
