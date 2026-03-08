@@ -15,6 +15,7 @@ from app.exceptions import AppException
 from app.logging import setup_logging, get_logger
 from app.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, limiter
 from app.routers import health, webhooks, admin, rss, assinaturas
+from app.routers.parlamentar import router as parlamentar_router
 
 logger = get_logger(__name__)
 
@@ -60,10 +61,12 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS — restrict in production, permissive in dev
+_cors_origins = ["*"] if settings.app_debug else [settings.dashboard_url]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.app_debug else [],
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -110,3 +113,4 @@ app.include_router(webhooks.router)
 app.include_router(admin.router)
 app.include_router(rss.router)
 app.include_router(assinaturas.router)
+app.include_router(parlamentar_router)

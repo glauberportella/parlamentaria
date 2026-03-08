@@ -67,6 +67,19 @@ class Settings(BaseSettings):
     digest_daily_minute: int = 30
     digest_batch_size: int = 50
 
+    # Dashboard Parlamentar — Auth & JWT
+    dashboard_url: str = "http://localhost:3000"
+    jwt_secret_key: str = "change-me-jwt-secret-key-64-chars"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    magic_link_expire_minutes: int = 15
+    magic_link_base_url: str = "http://localhost:3000/login/verify"
+
+    # Resend (email for Magic Link)
+    resend_api_key: str = ""
+    email_from: str = "Parlamentaria <noreply@parlamentaria.app>"
+
     @property
     def is_production(self) -> bool:
         """Check if running in production."""
