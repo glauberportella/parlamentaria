@@ -2,7 +2,7 @@
 
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.proposicao import Proposicao
@@ -75,3 +75,20 @@ class ProposicaoRepository(BaseRepository[Proposicao]):
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def listar_temas_distintos(self) -> list[str]:
+        """List all distinct themes stored across all propositions.
+
+        Uses PostgreSQL unnest() to flatten the ARRAY(String) column
+        and returns unique sorted theme names.
+
+        Returns:
+            Sorted list of unique theme names.
+        """
+        stmt = (
+            select(func.unnest(Proposicao.temas).label("tema"))
+            .distinct()
+            .order_by(text("tema"))
+        )
+        result = await self.session.execute(stmt)
+        return [row[0] for row in result.all()]

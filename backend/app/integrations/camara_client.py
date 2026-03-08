@@ -25,6 +25,7 @@ from app.integrations.camara_types import (
     PartidoResumoAPI,
     ProposicaoDetalhadaAPI,
     ProposicaoResumoAPI,
+    ReferenciaAPI,
     TemaAPI,
     TramitacaoAPI,
     VotacaoDetalhadaAPI,
@@ -497,3 +498,19 @@ class CamaraClient:
         """
         dados = await self._get_dados_single(f"/partidos/{partido_id}")
         return PartidoDetalhadoAPI(**dados)
+
+    # ------------------------------------------------------------------
+    # Referências (códigos oficiais)
+    # ------------------------------------------------------------------
+
+    async def listar_temas_referencia(self) -> list[ReferenciaAPI]:
+        """List official theme codes for propositions.
+
+        Calls GET /referencias/proposicoes/codTema to retrieve the
+        complete list of theme codes used by the Câmara API.
+
+        Returns:
+            List of reference items with cod, sigla, nome, descricao.
+        """
+        dados = await self._get_dados("/referencias/proposicoes/codTema")
+        return [ReferenciaAPI(**item) for item in dados]

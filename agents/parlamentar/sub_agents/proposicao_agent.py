@@ -16,6 +16,7 @@ from agents.parlamentar.tools.camara_tools import (
 from agents.parlamentar.tools.db_tools import (
     consultar_proposicao_local,
     listar_proposicoes_local,
+    listar_temas_disponiveis,
     obter_analise_ia,
 )
 from agents.parlamentar.tools.rag_tools import (
@@ -39,6 +40,7 @@ proposicao_agent = LlmAgent(
         listar_tramitacoes_proposicao,
         consultar_proposicao_local,
         listar_proposicoes_local,
+        listar_temas_disponiveis,
         obter_analise_ia,
     ],
 )

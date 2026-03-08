@@ -7,6 +7,7 @@ AI analyses, and voter data. They integrate with the service layer.
 from __future__ import annotations
 
 from app.db.session import async_session_factory
+from app.repositories.proposicao import ProposicaoRepository
 from app.services.proposicao_service import ProposicaoService
 from app.services.analise_service import AnaliseIAService
 from app.services.eleitor_service import EleitorService
@@ -408,3 +409,62 @@ async def verificar_titulo_eleitor(
                 }
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
+
+async def listar_temas_disponiveis(incluir_referencia_oficial: bool = False) -> dict:
+    """Lista todos os temas disponíveis para proposições legislativas.
+
+    Retorna os temas que existem nas proposições já sincronizadas no sistema.
+    Útil para saber quais áreas temáticas estão disponíveis para busca.
+    Opcionalmente, inclui a lista oficial de temas da API da Câmara.
+
+    Args:
+        incluir_referencia_oficial: Se True, também busca a lista completa de
+            temas oficiais da API da Câmara dos Deputados (pode ser mais lenta).
+            Padrão False — retorna apenas temas das proposições sincronizadas.
+
+    Returns:
+        Dict com status, lista de temas locais e opcionalmente temas oficiais.
+    """
+    try:
+        async with async_session_factory() as session:
+            repo = ProposicaoRepository(session)
+            temas_locais = await repo.listar_temas_distintos()
+
+            resultado: dict = {
+                "status": "success",
+                "temas_disponiveis": temas_locais,
+                "total": len(temas_locais),
+                "descricao": (
+                    "Estes são os temas das proposições que já foram "
+                    "sincronizadas no sistema. O eleitor pode buscar "
+                    "proposições usando qualquer um desses temas."
+                ),
+            }
+
+            if incluir_referencia_oficial:
+                try:
+                    from app.integrations.camara_client import CamaraClient
+
+                    async with CamaraClient() as client:
+                        refs = await client.listar_temas_referencia()
+                        resultado["temas_oficiais"] = [
+                            {"codigo": r.cod, "nome": r.nome}
+                            for r in refs
+                        ]
+                        resultado["total_oficiais"] = len(refs)
+                except Exception:
+                    resultado["temas_oficiais_erro"] = (
+                        "Não foi possível consultar os temas oficiais "
+                        "da API da Câmara no momento."
+                    )
+
+            return resultado
+    except Exception:
+        return {
+            "status": "error",
+            "error": (
+                "Não foi possível listar os temas disponíveis no momento. "
+                "Tente novamente em instantes."
+            ),
+        }
