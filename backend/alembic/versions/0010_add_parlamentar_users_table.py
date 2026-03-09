@@ -17,7 +17,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, ARRAY, ENUM as PgEnum
 
 
 # revision identifiers, used by Alembic.
@@ -29,13 +29,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Create parlamentar_users table and tipo_parlamentar_user enum."""
-    # Create the enum type first (checkfirst avoids error if it already exists)
-    tipo_enum = sa.Enum(
+    # Create the enum via raw SQL (safe against re-runs if type already exists)
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE tipo_parlamentar_user AS ENUM ('DEPUTADO', 'ASSESSOR', 'LIDERANCA'); "
+        "EXCEPTION WHEN duplicate_object THEN null; "
+        "END $$;"
+    )
+
+    # Use PgEnum with create_type=False so create_table won't try to create it again
+    tipo_enum = PgEnum(
         "DEPUTADO", "ASSESSOR", "LIDERANCA",
         name="tipo_parlamentar_user",
         create_type=False,
     )
-    tipo_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "parlamentar_users",
@@ -81,4 +88,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop parlamentar_users table and enum."""
     op.drop_table("parlamentar_users")
-    sa.Enum(name="tipo_parlamentar_user").drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS tipo_parlamentar_user")
