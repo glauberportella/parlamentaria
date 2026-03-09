@@ -471,6 +471,61 @@ class TestAuthRouter:
         )
         assert response.status_code == 401
 
+    async def test_demo_status_disabled_by_default(
+        self, client: AsyncClient
+    ) -> None:
+        """GET /parlamentar/auth/demo-status returns enabled=False by default."""
+        response = await client.get("/parlamentar/auth/demo-status")
+        assert response.status_code == 200
+        assert response.json()["enabled"] is False
+
+    async def test_demo_status_enabled(self, client: AsyncClient) -> None:
+        """GET /parlamentar/auth/demo-status returns enabled=True when demo_mode=True."""
+        with patch.object(settings, "demo_mode", True), \
+             patch.object(settings, "app_env", "development"):
+            response = await client.get("/parlamentar/auth/demo-status")
+        assert response.status_code == 200
+        assert response.json()["enabled"] is True
+
+    async def test_demo_login_disabled(self, client: AsyncClient) -> None:
+        """POST /parlamentar/auth/demo-login returns 422 when demo mode is off."""
+        response = await client.post("/parlamentar/auth/demo-login")
+        assert response.status_code == 422
+
+    async def test_demo_login_enabled(self, client: AsyncClient) -> None:
+        """POST /parlamentar/auth/demo-login creates demo user and returns tokens."""
+        with patch.object(settings, "demo_mode", True), \
+             patch.object(settings, "app_env", "development"):
+            response = await client.post("/parlamentar/auth/demo-login")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "tokens" in data
+        assert "user" in data
+        assert data["tokens"]["access_token"] is not None
+        assert data["user"]["email"] == settings.demo_user_email
+        assert data["user"]["nome"] == settings.demo_user_nome
+
+    async def test_demo_login_idempotent(self, client: AsyncClient) -> None:
+        """POST /parlamentar/auth/demo-login is idempotent — same user on 2nd call."""
+        with patch.object(settings, "demo_mode", True), \
+             patch.object(settings, "app_env", "development"):
+            resp1 = await client.post("/parlamentar/auth/demo-login")
+            resp2 = await client.post("/parlamentar/auth/demo-login")
+
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        assert resp1.json()["user"]["id"] == resp2.json()["user"]["id"]
+
+    async def test_demo_login_blocked_in_production(
+        self, client: AsyncClient
+    ) -> None:
+        """POST /parlamentar/auth/demo-login returns 422 in production."""
+        with patch.object(settings, "demo_mode", True), \
+             patch.object(settings, "app_env", "production"):
+            response = await client.post("/parlamentar/auth/demo-login")
+        assert response.status_code == 422
+
 
 class TestDashboardRouter:
     """Test /parlamentar/dashboard endpoints."""

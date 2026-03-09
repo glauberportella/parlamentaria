@@ -31,8 +31,36 @@ export const authConfig: NextAuthConfig = {
             id: data.user.id,
             name: data.user.nome,
             email: data.user.email,
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
+            accessToken: data.tokens.access_token,
+            refreshToken: data.tokens.refresh_token,
+            deputadoId: data.user.deputado_id,
+            cargo: data.user.cargo,
+          };
+        } catch {
+          return null;
+        }
+      },
+    }),
+    Credentials({
+      id: "demo",
+      name: "Demo",
+      credentials: {},
+      async authorize() {
+        try {
+          const res = await fetch(`${API_URL}/parlamentar/auth/demo-login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (!res.ok) return null;
+
+          const data = await res.json();
+          return {
+            id: data.user.id,
+            name: data.user.nome,
+            email: data.user.email,
+            accessToken: data.tokens.access_token,
+            refreshToken: data.tokens.refresh_token,
             deputadoId: data.user.deputado_id,
             cargo: data.user.cargo,
           };

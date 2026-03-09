@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     digest_daily_minute: int = 30
     digest_batch_size: int = 50
 
+    # Demo mode (development only — bypasses email auth)
+    demo_mode: bool = False
+    demo_user_email: str = "demo@parlamentaria.app"
+    demo_user_nome: str = "Deputado(a) Demo"
+    demo_deputado_id: int | None = None
+
     # Dashboard Parlamentar — Auth & JWT
     dashboard_url: str = "http://localhost:3000"
     jwt_secret_key: str = "change-me-jwt-secret-key-64-chars"

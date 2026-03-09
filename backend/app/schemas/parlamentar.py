@@ -100,3 +100,9 @@ class ConviteCreateResponse(BaseModel):
     email: str
     codigo_convite: str
     message: str = "Convite criado com sucesso."
+
+
+class DemoStatusResponse(BaseModel):
+    """Response indicating whether demo login is available."""
+
+    enabled: bool

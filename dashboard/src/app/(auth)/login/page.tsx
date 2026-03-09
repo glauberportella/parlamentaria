@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Landmark, Loader2, ArrowRight } from "lucide-react";
+import { signIn } from "next-auth/react";
+import { Landmark, Loader2, ArrowRight, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,8 +17,35 @@ function LoginContent() {
   const [email, setEmail] = useState("");
   const [codigoConvite, setCodigoConvite] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoEnabled, setDemoEnabled] = useState(false);
   const [sent, setSent] = useState(false);
   const [errorMsg, setErrorMsg] = useState(error ? "Erro ao autenticar. Tente novamente." : "");
+
+  useEffect(() => {
+    api
+      .get<{ enabled: boolean }>("/parlamentar/auth/demo-status", true)
+      .then((data) => setDemoEnabled(data.enabled))
+      .catch(() => setDemoEnabled(false));
+  }, []);
+
+  async function handleDemoLogin() {
+    setDemoLoading(true);
+    setErrorMsg("");
+
+    try {
+      const result = await signIn("demo", { redirect: false });
+      if (result?.ok) {
+        router.push("/dashboard");
+      } else {
+        setErrorMsg("Não foi possível entrar no modo demo.");
+      }
+    } catch {
+      setErrorMsg("Não foi possível entrar no modo demo.");
+    } finally {
+      setDemoLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -118,7 +146,7 @@ function LoginContent() {
             <p className="text-sm text-destructive">{errorMsg}</p>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || demoLoading}>
             {loading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -126,6 +154,34 @@ function LoginContent() {
             )}
             Enviar link de acesso
           </Button>
+
+          {demoEnabled && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">ou</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading || demoLoading}
+                onClick={handleDemoLogin}
+              >
+                {demoLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <UserCircle className="mr-2 h-4 w-4" />
+                )}
+                Entrar como Demo
+              </Button>
+            </>
+          )}
         </form>
       </CardContent>
     </Card>

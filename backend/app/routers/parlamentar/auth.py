@@ -8,12 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies import get_db
-from app.exceptions import UnauthorizedException
+from app.exceptions import UnauthorizedException, ValidationException
 from app.logging import get_logger
 from app.schemas.parlamentar import (
     AuthTokens,
     ConviteCreateRequest,
     ConviteCreateResponse,
+    DemoStatusResponse,
     LoginRequest,
     LoginResponse,
     ParlamentarUserResponse,
@@ -118,6 +119,38 @@ async def get_me(
 ) -> ParlamentarUserResponse:
     """Return the currently authenticated parlamentar user."""
     return current_user
+
+
+@router.get("/demo-status", response_model=DemoStatusResponse)
+async def demo_status() -> DemoStatusResponse:
+    """Check whether demo login is available.
+
+    Returns enabled=True when DEMO_MODE=true and not in production.
+    """
+    enabled = settings.demo_mode and not settings.is_production
+    return DemoStatusResponse(enabled=enabled)
+
+
+@router.post("/demo-login", response_model=VerifyResponse)
+async def demo_login(
+    db: AsyncSession = Depends(get_db),
+) -> VerifyResponse:
+    """Log in as the demo user (development/staging only).
+
+    Creates the demo user automatically on first call.
+    """
+    service = ParlamentarAuthService(db)
+    user, access_token, refresh_token = await service.demo_login()
+    await db.commit()
+
+    return VerifyResponse(
+        user=ParlamentarUserResponse.model_validate(user),
+        tokens=AuthTokens(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=settings.access_token_expire_minutes * 60,
+        ),
+    )
 
 
 @router.put("/me", response_model=ParlamentarUserResponse)

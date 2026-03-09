@@ -332,6 +332,52 @@ class ParlamentarAuthService:
         return user
 
     # ──────────────────────────────────────────────
+    #  Demo login (development only)
+    # ──────────────────────────────────────────────
+
+    async def demo_login(self) -> tuple[ParlamentarUser, str, str]:
+        """Create or find demo user and return JWT tokens directly.
+
+        Only works when DEMO_MODE=true and not in production.
+
+        Returns:
+            Tuple of (user, access_token, refresh_token).
+
+        Raises:
+            ValidationException: If demo mode is disabled or in production.
+        """
+        if not settings.demo_mode or settings.is_production:
+            raise ValidationException("Modo demo desabilitado.")
+
+        user = await self.get_user_by_email(settings.demo_user_email)
+
+        if user is None:
+            user = ParlamentarUser(
+                email=settings.demo_user_email,
+                nome=settings.demo_user_nome,
+                tipo=TipoParlamentarUser.DEPUTADO,
+                cargo="Deputado(a) Federal",
+                deputado_id=settings.demo_deputado_id,
+                ativo=True,
+                convite_usado=True,
+            )
+            self.session.add(user)
+            await self.session.flush()
+            logger.info("parlamentar.auth.demo_user_created", user_id=user.id)
+
+        # Update last login
+        user.ultimo_login = datetime.now(timezone.utc)
+
+        # Create JWT pair
+        access_token = self.create_access_token(user)
+        refresh_token = self.create_refresh_token(user)
+        user.refresh_token_hash = self._hash_token(refresh_token)
+        await self.session.flush()
+
+        logger.info("parlamentar.auth.demo_login", user_id=user.id)
+        return user, access_token, refresh_token
+
+    # ──────────────────────────────────────────────
     #  Email dispatch (Resend)
     # ──────────────────────────────────────────────
 
