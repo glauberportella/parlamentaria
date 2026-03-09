@@ -277,6 +277,81 @@ export interface PaginatedResponse<T> {
   itens_por_pagina: number;
 }
 
+// ─── Comparativos (Fase 4) ─────────────────────────
+
+export interface ComparativoListItem {
+  id: string;
+  proposicao_id: number;
+  tipo: string;
+  numero: number;
+  ano: number;
+  ementa: string;
+  temas: string[] | null;
+  resultado_camara: "APROVADO" | "REJEITADO";
+  voto_popular_sim: number;
+  voto_popular_nao: number;
+  voto_popular_abstencao: number;
+  votos_camara_sim: number;
+  votos_camara_nao: number;
+  alinhamento: number;
+  resumo_ia: string | null;
+  data_geracao: string | null;
+}
+
+export interface EvolucaoAlinhamentoItem {
+  mes: string;
+  alinhamento_medio: number;
+  total_comparativos: number;
+}
+
+export interface ComparativosFilters {
+  alinhamento_min?: number;
+  alinhamento_max?: number;
+  resultado?: "APROVADO" | "REJEITADO";
+  tema?: string;
+  ordenar?: "recentes" | "alinhamento_asc" | "alinhamento_desc";
+  pagina?: number;
+  itens?: number;
+}
+
+// ─── Meu Mandato (Fase 4) ─────────────────────────
+
+export interface DeputadoInfo {
+  id: number;
+  nome: string;
+  sigla_partido: string | null;
+  sigla_uf: string | null;
+  foto_url: string | null;
+}
+
+export interface MandatoResumo {
+  deputado: DeputadoInfo | null;
+  total_comparativos: number;
+  alinhamento_medio: number;
+  total_votos_populares_recebidos: number;
+  proposicoes_acompanhadas: number;
+  comparativos_alinhados: number;
+  comparativos_divergentes: number;
+  temas_acompanhados: string[] | null;
+}
+
+export interface AlinhamentoSerieItem {
+  mes: string;
+  alinhamento: number;
+  total: number;
+}
+
+export interface AlinhamentoComparacao {
+  pessoal: AlinhamentoSerieItem[];
+  partido: AlinhamentoSerieItem[];
+  uf: AlinhamentoSerieItem[];
+  alinhamento_medio_pessoal: number;
+  alinhamento_medio_partido: number;
+  alinhamento_medio_uf: number;
+  sigla_partido: string | null;
+  sigla_uf: string | null;
+}
+
 // ─── API Response wrapper ──────────────────────────
 
 export interface ApiError {
