@@ -67,6 +67,25 @@ class Settings(BaseSettings):
     digest_daily_minute: int = 30
     digest_batch_size: int = 50
 
+    # Demo mode (development only — bypasses email auth)
+    demo_mode: bool = False
+    demo_user_email: str = "demo@parlamentaria.app"
+    demo_user_nome: str = "Deputado(a) Demo"
+    demo_deputado_id: int | None = None
+
+    # Dashboard Parlamentar — Auth & JWT
+    dashboard_url: str = "http://localhost:3000"
+    jwt_secret_key: str = "change-me-jwt-secret-key-64-chars"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    magic_link_expire_minutes: int = 15
+    magic_link_base_url: str = "http://localhost:3000/login/verify"
+
+    # Resend (email for Magic Link)
+    resend_api_key: str = ""
+    email_from: str = "Parlamentaria <noreply@parlamentaria.app>"
+
     @property
     def is_production(self) -> bool:
         """Check if running in production."""

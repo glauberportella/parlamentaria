@@ -49,6 +49,17 @@ services:
   celery-beat:
     restart: unless-stopped
 
+  dashboard:
+    build:
+      context: ./dashboard
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:8000
+    environment:
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-me}
+      - AUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-me}
+    restart: unless-stopped
+
   db:
     # PostgreSQL com tuning leve para macOS (Docker Desktop tem menos recursos)
     command: >
