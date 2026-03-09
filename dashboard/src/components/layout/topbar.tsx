@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function getInitials(name: string): string {
   return name
@@ -32,6 +33,8 @@ export function Topbar() {
       <SidebarTrigger />
       <Separator orientation="vertical" className="h-6" />
       <div className="flex-1" />
+
+      <ThemeToggle />
 
       {session?.user && (
         <DropdownMenu>

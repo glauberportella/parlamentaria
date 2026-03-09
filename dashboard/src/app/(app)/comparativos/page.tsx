@@ -6,14 +6,17 @@ import {
   TrendingUp,
   CheckCircle2,
   XCircle,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useComparativos, useEvolucaoAlinhamento } from "@/hooks/use-comparativos";
 import { AlinhamentoEvolucaoChart } from "@/components/comparativos/alinhamento-evolucao-chart";
 import { ComparativosTable } from "@/components/comparativos/comparativos-table";
+import { downloadCSV } from "@/lib/export";
 import type { ComparativosFilters } from "@/types/api";
 
 /* ── skeleton ──────────────────────────────────── */
@@ -140,11 +143,27 @@ export default function ComparativosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Comparativos</h1>
-        <p className="text-muted-foreground">
-          Comparações entre voto popular e votação real na Câmara.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Comparativos</h1>
+          <p className="text-muted-foreground">
+            Comparações entre voto popular e votação real na Câmara.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const params = filters.resultado ? `?resultado=${filters.resultado}` : "";
+            downloadCSV(
+              `/parlamentar/exportar/comparativos${params}`,
+              "comparativos.csv",
+            );
+          }}
+        >
+          <Download className="h-4 w-4 md:mr-2" />
+          <span className="hidden md:inline">Exportar CSV</span>
+        </Button>
       </div>
 
       {/* KPI cards */}

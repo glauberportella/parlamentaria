@@ -357,3 +357,12 @@ export interface AlinhamentoComparacao {
 export interface ApiError {
   detail: string;
 }
+
+// ─── Profile Update (Fase 5) ──────────────────────
+
+export interface ParlamentarUserUpdate {
+  nome?: string;
+  cargo?: string;
+  temas_acompanhados?: string[];
+  notificacoes_email?: boolean;
+}

@@ -1,7 +1,8 @@
 "use client";
 
-import { Vote, TrendingUp, Users, BarChart3 } from "lucide-react";
+import { Vote, TrendingUp, Users, BarChart3, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -14,6 +15,7 @@ import { VotosPorTemaChart } from "@/components/votacao/votos-por-tema-chart";
 import { VotosPorUFChart } from "@/components/votacao/votos-por-uf-chart";
 import { VotosTimelineChart } from "@/components/votacao/votos-timeline-chart";
 import { VotosRankingTable } from "@/components/votacao/votos-ranking-table";
+import { downloadCSV } from "@/lib/export";
 
 function PanoramaSkeleton() {
   return (
@@ -76,13 +78,23 @@ export default function VotacaoPopularPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Votação Popular
-        </h1>
-        <p className="text-muted-foreground">
-          Panorama geral da participação popular nas votações legislativas.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Votação Popular
+          </h1>
+          <p className="text-muted-foreground">
+            Panorama geral da participação popular nas votações legislativas.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => downloadCSV("/parlamentar/exportar/votos", "votos-populares.csv")}
+        >
+          <Download className="h-4 w-4 md:mr-2" />
+          <span className="hidden md:inline">Exportar CSV</span>
+        </Button>
       </div>
 
       {/* KPI mini cards */}

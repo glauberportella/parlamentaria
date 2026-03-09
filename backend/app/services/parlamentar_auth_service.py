@@ -134,6 +134,39 @@ class ParlamentarAuthService:
         )
         return result.scalar_one_or_none()
 
+    async def update_user_profile(
+        self,
+        user_id: str,
+        nome: str | None = None,
+        cargo: str | None = None,
+        temas_acompanhados: list[str] | None = None,
+        notificacoes_email: bool | None = None,
+    ) -> ParlamentarUser:
+        """Update a parlamentar user's profile and preferences.
+
+        Only non-None values are applied (partial update).
+
+        Raises:
+            NotFoundException: If the user is not found.
+        """
+        user = await self.get_user_by_id(user_id)
+        if user is None:
+            raise NotFoundException("Conta não encontrada.")
+
+        if nome is not None:
+            user.nome = nome
+        if cargo is not None:
+            user.cargo = cargo
+        if temas_acompanhados is not None:
+            user.temas_acompanhados = temas_acompanhados
+        if notificacoes_email is not None:
+            user.notificacoes_email = notificacoes_email
+
+        await self.session.flush()
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
     # ──────────────────────────────────────────────
     #  Login flow
     # ──────────────────────────────────────────────

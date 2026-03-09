@@ -17,6 +17,7 @@ from app.schemas.parlamentar import (
     LoginRequest,
     LoginResponse,
     ParlamentarUserResponse,
+    ParlamentarUserUpdate,
     RefreshTokenRequest,
     VerifyResponse,
     VerifyTokenRequest,
@@ -117,6 +118,24 @@ async def get_me(
 ) -> ParlamentarUserResponse:
     """Return the currently authenticated parlamentar user."""
     return current_user
+
+
+@router.put("/me", response_model=ParlamentarUserResponse)
+async def update_me(
+    body: ParlamentarUserUpdate,
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+    db: AsyncSession = Depends(get_db),
+) -> ParlamentarUserResponse:
+    """Update the authenticated parlamentar user's profile/preferences."""
+    service = ParlamentarAuthService(db)
+    updated = await service.update_user_profile(
+        user_id=current_user.id,
+        nome=body.nome,
+        cargo=body.cargo,
+        temas_acompanhados=body.temas_acompanhados,
+        notificacoes_email=body.notificacoes_email,
+    )
+    return ParlamentarUserResponse.model_validate(updated)
 
 
 @router.post(

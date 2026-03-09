@@ -74,6 +74,15 @@ class VerifyResponse(BaseModel):
     tokens: AuthTokens
 
 
+class ParlamentarUserUpdate(BaseModel):
+    """Request to update parlamentar profile/preferences."""
+
+    nome: str | None = Field(None, min_length=2, max_length=300)
+    cargo: str | None = Field(None, max_length=200)
+    temas_acompanhados: list[str] | None = None
+    notificacoes_email: bool | None = None
+
+
 class ConviteCreateRequest(BaseModel):
     """Request to create an invitation for a new parlamentar user."""
 
