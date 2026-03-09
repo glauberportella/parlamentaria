@@ -29,10 +29,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Create parlamentar_users table and tipo_parlamentar_user enum."""
-    # Create the enum type first
+    # Create the enum type first (checkfirst avoids error if it already exists)
     tipo_enum = sa.Enum(
         "DEPUTADO", "ASSESSOR", "LIDERANCA",
         name="tipo_parlamentar_user",
+        create_type=False,
     )
     tipo_enum.create(op.get_bind(), checkfirst=True)
 
