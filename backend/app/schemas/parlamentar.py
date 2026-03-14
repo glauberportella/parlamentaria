@@ -51,6 +51,7 @@ class ParlamentarUserResponse(BaseModel):
     cargo: str | None = None
     tipo: str
     ativo: bool
+    is_admin: bool = False
     temas_acompanhados: list[str] | None = None
     notificacoes_email: bool
     ultimo_login: datetime | None = None
@@ -106,3 +107,43 @@ class DemoStatusResponse(BaseModel):
     """Response indicating whether demo login is available."""
 
     enabled: bool
+
+
+# ─── Admin ──────────────────────────────────────────
+
+
+class AdminUserUpdateRequest(BaseModel):
+    """Request to update a parlamentar user (admin action)."""
+
+    nome: str | None = Field(None, min_length=2, max_length=300)
+    cargo: str | None = Field(None, max_length=200)
+    tipo: str | None = None
+    ativo: bool | None = None
+    is_admin: bool | None = None
+    deputado_id: int | None = None
+
+
+class AdminConviteListItem(BaseModel):
+    """Summary of a pending invitation."""
+
+    id: str
+    email: str
+    nome: str
+    tipo: str
+    cargo: str | None = None
+    deputado_id: int | None = None
+    codigo_convite: str | None = None
+    convite_usado: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, **kwargs):  # noqa: ANN206
+        """Handle UUID → str conversion from SQLAlchemy models."""
+        import uuid as _uuid
+
+        if hasattr(obj, "id") and isinstance(obj.id, _uuid.UUID):
+            obj.__dict__["id"] = str(obj.id)
+        return super().model_validate(obj, **kwargs)
+

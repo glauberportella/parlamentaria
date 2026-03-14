@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 import resend
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -376,6 +376,119 @@ class ParlamentarAuthService:
 
         logger.info("parlamentar.auth.demo_login", user_id=user.id)
         return user, access_token, refresh_token
+
+    # ──────────────────────────────────────────────
+    #  Admin — user management
+    # ──────────────────────────────────────────────
+
+    async def list_users(
+        self,
+        tipo: str | None = None,
+        ativo: bool | None = None,
+    ) -> list[ParlamentarUser]:
+        """List all parlamentar users, optionally filtered."""
+        stmt = select(ParlamentarUser).order_by(ParlamentarUser.created_at.desc())
+        if tipo is not None:
+            stmt = stmt.where(ParlamentarUser.tipo == tipo)
+        if ativo is not None:
+            stmt = stmt.where(ParlamentarUser.ativo == ativo)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def admin_update_user(
+        self,
+        user_id: str,
+        nome: str | None = None,
+        cargo: str | None = None,
+        tipo: str | None = None,
+        ativo: bool | None = None,
+        is_admin: bool | None = None,
+        deputado_id: int | None = None,
+    ) -> ParlamentarUser:
+        """Admin update of any parlamentar user.
+
+        Raises:
+            NotFoundException: If the user is not found.
+            ValidationException: If tipo is invalid.
+        """
+        user = await self.get_user_by_id(user_id)
+        if user is None:
+            raise NotFoundException("Conta não encontrada.")
+
+        if nome is not None:
+            user.nome = nome
+        if cargo is not None:
+            user.cargo = cargo
+        if tipo is not None:
+            try:
+                user.tipo = TipoParlamentarUser(tipo)
+            except ValueError:
+                raise ValidationException(
+                    f"Tipo inválido. Use: {', '.join(t.value for t in TipoParlamentarUser)}"
+                )
+        if ativo is not None:
+            user.ativo = ativo
+        if is_admin is not None:
+            user.is_admin = is_admin
+        if deputado_id is not None:
+            user.deputado_id = deputado_id
+
+        await self.session.flush()
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
+    async def delete_user(self, user_id: str) -> None:
+        """Delete a parlamentar user permanently.
+
+        Raises:
+            NotFoundException: If the user is not found.
+        """
+        user = await self.get_user_by_id(user_id)
+        if user is None:
+            raise NotFoundException("Conta não encontrada.")
+        await self.session.delete(user)
+        await self.session.commit()
+
+    async def list_pending_invites(self) -> list[ParlamentarUser]:
+        """List all users with unused invitation codes."""
+        result = await self.session.execute(
+            select(ParlamentarUser)
+            .where(
+                ParlamentarUser.convite_usado == False,  # noqa: E712
+                ParlamentarUser.codigo_convite.isnot(None),
+            )
+            .order_by(ParlamentarUser.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def count_users(self) -> dict[str, int]:
+        """Return summary counts of parlamentar users."""
+        result = await self.session.execute(
+            select(func.count(ParlamentarUser.id)).where(
+                ParlamentarUser.ativo == True  # noqa: E712
+            )
+        )
+        total_ativos = result.scalar() or 0
+
+        result = await self.session.execute(
+            select(func.count(ParlamentarUser.id)).where(
+                ParlamentarUser.convite_usado == False,  # noqa: E712
+                ParlamentarUser.codigo_convite.isnot(None),
+            )
+        )
+        convites_pendentes = result.scalar() or 0
+
+        result = await self.session.execute(
+            select(func.count(ParlamentarUser.id))
+        )
+        total = result.scalar() or 0
+
+        return {
+            "total": total,
+            "ativos": total_ativos,
+            "convites_pendentes": convites_pendentes,
+        }
 
     # ──────────────────────────────────────────────
     #  Email dispatch (Resend)
