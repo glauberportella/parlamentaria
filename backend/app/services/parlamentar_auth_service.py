@@ -331,6 +331,10 @@ class ParlamentarAuthService:
             user_id=user.id,
             email=email,
         )
+
+        # Send invitation email
+        await self._send_invitation_email(email, nome, codigo)
+
         return user
 
     # ──────────────────────────────────────────────
@@ -532,6 +536,87 @@ class ParlamentarAuthService:
             )
             # Don't raise — login should still "succeed" to prevent enumeration
             return
+
+    async def _send_invitation_email(
+        self, to_email: str, nome: str, codigo_convite: str
+    ) -> None:
+        """Send an invitation email via Resend API."""
+        if not settings.resend_api_key:
+            logger.warning(
+                "parlamentar.auth.resend_not_configured",
+                detail="RESEND_API_KEY não configurada. Email de convite não enviado.",
+            )
+            if settings.app_debug:
+                logger.info(
+                    "parlamentar.auth.invitation_debug",
+                    email=to_email,
+                    codigo=codigo_convite,
+                )
+            return
+
+        resend.api_key = settings.resend_api_key
+
+        try:
+            resend.Emails.send(
+                {
+                    "from": settings.email_from,
+                    "to": [to_email],
+                    "subject": "Parlamentaria — Você foi convidado(a) para o Dashboard",
+                    "html": self._build_invitation_html(nome, codigo_convite),
+                }
+            )
+            logger.info("parlamentar.auth.invitation_email_sent", to=to_email)
+        except Exception:
+            logger.error(
+                "parlamentar.auth.invitation_email_failed",
+                to=to_email,
+            )
+            # Don't raise — invitation was created successfully regardless of email
+            return
+
+    @staticmethod
+    def _build_invitation_html(nome: str, codigo_convite: str) -> str:
+        """Build HTML email body for invitation."""
+        login_url = settings.dashboard_url + "/login"
+        return f"""
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #1a73e8;">Parlamentaria</h2>
+            <p>Olá, <strong>{nome}</strong>!</p>
+            <p>Você foi convidado(a) para acessar o <strong>Dashboard do Parlamentar</strong> —
+               a plataforma de democracia participativa que conecta parlamentares à opinião popular.</p>
+            <p>Para fazer seu primeiro acesso, siga os passos abaixo:</p>
+            <ol style="line-height: 1.8;">
+                <li>Acesse a página de login</li>
+                <li>Informe seu email: <strong>{nome}</strong></li>
+                <li>Informe o código de convite abaixo</li>
+                <li>Clique em &ldquo;Enviar link de acesso&rdquo;</li>
+                <li>Abra o link recebido por email</li>
+            </ol>
+            <div style="text-align: center; margin: 24px 0;">
+                <div style="background-color: #f5f5f5; border: 2px dashed #1a73e8;
+                            padding: 16px; border-radius: 8px; display: inline-block;">
+                    <span style="font-family: monospace; font-size: 18px; letter-spacing: 1px;
+                                 color: #1a73e8; font-weight: bold;">{codigo_convite}</span>
+                </div>
+                <p style="color: #666; font-size: 13px; margin-top: 8px;">Seu código de convite</p>
+            </div>
+            <div style="text-align: center; margin: 24px 0;">
+                <a href="{login_url}"
+                   style="background-color: #1a73e8; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 6px; font-size: 16px;">
+                    Acessar Dashboard
+                </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+                Após o primeiro login, você poderá acessar usando apenas seu email —
+                sem precisar do código novamente.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;"/>
+            <p style="color: #999; font-size: 12px;">
+                Parlamentaria — Plataforma de democracia participativa
+            </p>
+        </div>
+        """
 
     @staticmethod
     def _build_magic_link_html(nome: str, magic_link_url: str) -> str:
