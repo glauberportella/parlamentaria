@@ -26,6 +26,7 @@ import sys
 
 from app.config import settings
 from app.db.session import async_session_factory
+from app.domain.deputado import Deputado  # noqa: F401 — register model for SQLAlchemy relationship resolution
 from app.services.parlamentar_auth_service import ParlamentarAuthService
 
 
