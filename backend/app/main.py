@@ -60,8 +60,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS — restrict in production, permissive in dev
-_cors_origins = ["*"] if settings.app_debug else [settings.dashboard_url]
+# CORS — always include dashboard_url; permissive in dev
+_cors_origins: list[str] = [settings.dashboard_url]
+if settings.cors_extra_origins:
+    _cors_origins.extend(
+        o.strip() for o in settings.cors_extra_origins.split(",") if o.strip()
+    )
+if settings.app_debug:
+    _cors_origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
