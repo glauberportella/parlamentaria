@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select, case, desc
+from sqlalchemy import func, select, case, desc, cast, Numeric
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
@@ -212,15 +212,21 @@ async def get_dashboard_resumo(
                 Proposicao.ementa,
                 func.count(VotoPopular.id).label("total_votos"),
                 func.round(
-                    100.0
-                    * func.sum(case((VotoPopular.voto == "SIM", 1), else_=0))
-                    / func.greatest(func.count(VotoPopular.id), 1),
+                    cast(
+                        100.0
+                        * func.sum(case((VotoPopular.voto == "SIM", 1), else_=0))
+                        / func.greatest(func.count(VotoPopular.id), 1),
+                        Numeric,
+                    ),
                     1,
                 ).label("percentual_sim"),
                 func.round(
-                    100.0
-                    * func.sum(case((VotoPopular.voto == "NAO", 1), else_=0))
-                    / func.greatest(func.count(VotoPopular.id), 1),
+                    cast(
+                        100.0
+                        * func.sum(case((VotoPopular.voto == "NAO", 1), else_=0))
+                        / func.greatest(func.count(VotoPopular.id), 1),
+                        Numeric,
+                    ),
                     1,
                 ).label("percentual_nao"),
             )
