@@ -16,6 +16,11 @@ from app.integrations.camara_types import (
     DeputadoResumoAPI,
     DeputadoDetalhadoAPI,
     EventoResumoAPI,
+    OrgaoDeputadoAPI,
+    FrenteAPI,
+    ProfissaoAPI,
+    HistoricoAPI,
+    EventoDeputadoAPI,
 )
 
 
@@ -240,3 +245,117 @@ class TestCamaraClientErrors:
             "d": None,
         })
         assert result == {"a": 1, "c": "test"}
+
+
+class TestCamaraClientRaioX:
+    """Test Raio-X do Deputado endpoints (órgãos, frentes, profissões, histórico, eventos)."""
+
+    async def test_obter_orgaos_deputado(self):
+        """Should return list of OrgaoDeputadoAPI."""
+        async with CamaraClient() as client:
+            mock_response = make_response([
+                {
+                    "idOrgao": 1,
+                    "siglaOrgao": "CCJC",
+                    "nomeOrgao": "Comissão de Constituição e Justiça",
+                    "titulo": "Titular",
+                    "dataInicio": "2023-02-01",
+                    "dataFim": None,
+                },
+            ])
+            client._client.get = AsyncMock(return_value=mock_response)
+
+            result = await client.obter_orgaos_deputado(123)
+            assert len(result) == 1
+            assert isinstance(result[0], OrgaoDeputadoAPI)
+            assert result[0].siglaOrgao == "CCJC"
+            assert result[0].titulo == "Titular"
+
+    async def test_obter_frentes_deputado(self):
+        """Should return list of FrenteAPI."""
+        async with CamaraClient() as client:
+            mock_response = make_response([
+                {"id": 10, "titulo": "Frente Parlamentar da Educação"},
+                {"id": 20, "titulo": "Frente Parlamentar do Meio Ambiente"},
+            ])
+            client._client.get = AsyncMock(return_value=mock_response)
+
+            result = await client.obter_frentes_deputado(123)
+            assert len(result) == 2
+            assert isinstance(result[0], FrenteAPI)
+            assert result[1].titulo == "Frente Parlamentar do Meio Ambiente"
+
+    async def test_obter_profissoes_deputado(self):
+        """Should return list of ProfissaoAPI."""
+        async with CamaraClient() as client:
+            mock_response = make_response([
+                {"titulo": "Advogado", "codTipoProfissao": 1},
+            ])
+            client._client.get = AsyncMock(return_value=mock_response)
+
+            result = await client.obter_profissoes_deputado(123)
+            assert len(result) == 1
+            assert isinstance(result[0], ProfissaoAPI)
+            assert result[0].titulo == "Advogado"
+
+    async def test_obter_historico_deputado(self):
+        """Should return list of HistoricoAPI."""
+        async with CamaraClient() as client:
+            mock_response = make_response([
+                {
+                    "id": 1,
+                    "nome": "Dep. Teste",
+                    "siglaPartido": "PT",
+                    "siglaUf": "SP",
+                    "descricaoStatus": "Exercício",
+                    "situacao": "Ativo",
+                },
+            ])
+            client._client.get = AsyncMock(return_value=mock_response)
+
+            result = await client.obter_historico_deputado(123)
+            assert len(result) == 1
+            assert isinstance(result[0], HistoricoAPI)
+            assert result[0].siglaPartido == "PT"
+
+    async def test_obter_eventos_deputado(self):
+        """Should return list of EventoDeputadoAPI."""
+        async with CamaraClient() as client:
+            mock_response = make_response([
+                {
+                    "id": 100,
+                    "dataHoraInicio": "2024-03-01T10:00:00",
+                    "descricaoTipo": "Sessão Deliberativa",
+                    "descricao": "Sessão ordinária",
+                },
+            ])
+            client._client.get = AsyncMock(return_value=mock_response)
+
+            result = await client.obter_eventos_deputado(
+                123, data_inicio="2024-03-01", data_fim="2024-03-31",
+            )
+            assert len(result) == 1
+            assert isinstance(result[0], EventoDeputadoAPI)
+            assert result[0].descricaoTipo == "Sessão Deliberativa"
+
+    async def test_obter_eventos_deputado_with_pagination(self):
+        """Should pass pagination params correctly."""
+        async with CamaraClient() as client:
+            mock_response = make_response([])
+            client._client.get = AsyncMock(return_value=mock_response)
+
+            await client.obter_eventos_deputado(123, pagina=2, itens=50)
+
+            call_args = client._client.get.call_args
+            params = call_args.kwargs.get("params", {})
+            assert params.get("pagina") == 2
+            assert params.get("itens") == 50
+
+    async def test_obter_orgaos_deputado_empty(self):
+        """Should handle empty result list."""
+        async with CamaraClient() as client:
+            mock_response = make_response([])
+            client._client.get = AsyncMock(return_value=mock_response)
+
+            result = await client.obter_orgaos_deputado(999)
+            assert result == []
