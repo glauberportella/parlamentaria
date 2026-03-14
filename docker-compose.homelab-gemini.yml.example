@@ -48,9 +48,9 @@ services:
       POSTGRES_PASSWORD: P4R14M3NT4R14
     restart: unless-stopped
 
-  redis:
-    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD:-P4R14M3NT4R14} --maxmemory 512mb
-    restart: unless-stopped
+  # redis:
+  #   command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD:-P4R14M3NT4R14} --maxmemory 512mb
+  #   restart: unless-stopped
 
   # Cloudflare Tunnel
   # Somente utilize se o proxmox não tiver um LXC com o Cloudflare Tunnel
