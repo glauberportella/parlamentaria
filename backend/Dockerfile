@@ -52,6 +52,7 @@ EXPOSE 8000
 ENV WEB_CONCURRENCY=2
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f -H "Host: parlamentaria.app" http://localhost:8000/health || exit 1

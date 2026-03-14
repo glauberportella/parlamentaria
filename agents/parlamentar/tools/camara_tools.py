@@ -534,3 +534,205 @@ async def consultar_agenda_votacoes(dias: int = 7) -> dict:
             "status": "error",
             "error": "Não foi possível consultar a agenda de votações no momento. Tente novamente mais tarde.",
         }
+
+
+# ------------------------------------------------------------------
+# Raio-X do Deputado — Tools de perfil enriquecido
+# ------------------------------------------------------------------
+
+
+async def obter_comissoes_deputado(deputado_id: int) -> dict:
+    """Obtém as comissões e órgãos em que um deputado participa.
+
+    Mostra as áreas de influência e atuação do deputado na Câmara,
+    incluindo o cargo (titular, suplente, presidente) em cada comissão.
+
+    Args:
+        deputado_id: ID do deputado na API da Câmara.
+
+    Returns:
+        Dict com status e lista de comissões com cargo e período.
+    """
+    try:
+        async with CamaraClient() as client:
+            orgaos = await client.obter_orgaos_deputado(deputado_id)
+
+            items = []
+            for o in orgaos:
+                items.append({
+                    "sigla": o.siglaOrgao or "",
+                    "nome": o.nomeOrgao or "",
+                    "cargo": o.titulo or "Membro",
+                    "inicio": o.dataInicio or "",
+                    "fim": o.dataFim or "",
+                })
+
+            return {
+                "status": "success",
+                "comissoes": items,
+                "total": len(items),
+            }
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível obter as comissões do deputado no momento.",
+        }
+
+
+async def obter_frentes_deputado(deputado_id: int) -> dict:
+    """Obtém as frentes parlamentares de que um deputado participa.
+
+    Frentes parlamentares revelam as bandeiras e causas que o deputado
+    defende. Útil para entender o posicionamento e prioridades.
+
+    Args:
+        deputado_id: ID do deputado na API da Câmara.
+
+    Returns:
+        Dict com status e lista de frentes parlamentares.
+    """
+    try:
+        async with CamaraClient() as client:
+            frentes = await client.obter_frentes_deputado(deputado_id)
+
+            items = [
+                {"id": f.id, "titulo": f.titulo}
+                for f in frentes
+            ]
+
+            return {
+                "status": "success",
+                "frentes": items,
+                "total": len(items),
+            }
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível obter as frentes parlamentares do deputado no momento.",
+        }
+
+
+async def obter_presenca_deputado(
+    deputado_id: int,
+    dias: int = 30,
+) -> dict:
+    """Consulta a participação recente de um deputado em eventos da Câmara.
+
+    Mostra quantidade e tipos de eventos (sessões, audiências, etc.)
+    em que o deputado participou no período.
+
+    Args:
+        deputado_id: ID do deputado na API da Câmara.
+        dias: Período em dias para consultar (padrão 30, máximo 90).
+
+    Returns:
+        Dict com status, lista de eventos recentes e estatísticas.
+    """
+    try:
+        from datetime import datetime, timedelta
+
+        dias = min(dias, 90)
+        data_fim = datetime.now().strftime("%Y-%m-%d")
+        data_inicio = (datetime.now() - timedelta(days=dias)).strftime("%Y-%m-%d")
+
+        async with CamaraClient() as client:
+            eventos = await client.obter_eventos_deputado(
+                deputado_id,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+                itens=100,
+            )
+
+            # Aggregate by event type
+            por_tipo: dict[str, int] = {}
+            for ev in eventos:
+                tipo = ev.descricaoTipo or "Outro"
+                por_tipo[tipo] = por_tipo.get(tipo, 0) + 1
+
+            ultimos = [
+                {
+                    "data": ev.dataHoraInicio or "",
+                    "tipo": ev.descricaoTipo or "",
+                    "descricao": (ev.descricao or "")[:100],
+                }
+                for ev in eventos[:10]
+            ]
+
+            return {
+                "status": "success",
+                "total_eventos": len(eventos),
+                "periodo": f"{data_inicio} a {data_fim}",
+                "por_tipo": por_tipo,
+                "ultimos_eventos": ultimos,
+            }
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível obter a presença do deputado no momento.",
+        }
+
+
+async def obter_raio_x_deputado(deputado_id: int) -> dict:
+    """Gera o Raio-X completo de um deputado federal.
+
+    Combina perfil, comissões, frentes parlamentares e profissão
+    em uma visão unificada. Ideal quando o eleitor quer uma visão
+    geral sobre um deputado.
+
+    Args:
+        deputado_id: ID do deputado na API da Câmara.
+
+    Returns:
+        Dict com perfil enriquecido incluindo comissões, frentes e formação.
+    """
+    try:
+        import asyncio
+
+        async with CamaraClient() as client:
+            # Parallel requests for all data
+            perfil_task = client.obter_deputado(deputado_id)
+            orgaos_task = client.obter_orgaos_deputado(deputado_id)
+            frentes_task = client.obter_frentes_deputado(deputado_id)
+            profissoes_task = client.obter_profissoes_deputado(deputado_id)
+
+            perfil, orgaos, frentes, profissoes = await asyncio.gather(
+                perfil_task, orgaos_task, frentes_task, profissoes_task,
+            )
+
+            status = perfil.ultimoStatus or {}
+
+            return {
+                "status": "success",
+                "raio_x": {
+                    "id": perfil.id,
+                    "nome_civil": perfil.nomeCivil or "",
+                    "nome_parlamentar": status.get("nomeEleitoral", ""),
+                    "partido": status.get("siglaPartido", ""),
+                    "uf": status.get("siglaUf", ""),
+                    "situacao": status.get("situacao", ""),
+                    "foto_url": status.get("urlFoto", ""),
+                    "email": status.get("gabinete", {}).get("email", ""),
+                    "data_nascimento": perfil.dataNascimento or "",
+                    "profissoes": [
+                        p.titulo or "" for p in profissoes if p.titulo
+                    ],
+                    "comissoes": [
+                        {
+                            "sigla": o.siglaOrgao or "",
+                            "nome": o.nomeOrgao or "",
+                            "cargo": o.titulo or "Membro",
+                        }
+                        for o in orgaos[:15]
+                    ],
+                    "frentes_parlamentares": [
+                        f.titulo for f in frentes[:15]
+                    ],
+                    "total_comissoes": len(orgaos),
+                    "total_frentes": len(frentes),
+                },
+            }
+    except Exception:
+        return {
+            "status": "error",
+            "error": "Não foi possível gerar o Raio-X do deputado no momento.",
+        }

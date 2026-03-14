@@ -117,6 +117,7 @@ class TestAgentStructure:
         assert "buscar_deputado" in tool_names
         assert "obter_perfil_deputado" in tool_names
         assert "obter_despesas_deputado" in tool_names
+        assert "obter_raio_x_deputado" in tool_names
 
     def test_eleitor_agent_config(self):
         from agents.parlamentar.sub_agents.eleitor_agent import eleitor_agent

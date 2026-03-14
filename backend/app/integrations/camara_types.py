@@ -212,6 +212,68 @@ class PartidoDetalhadoAPI(BaseModel):
     urlFacebook: str | None = None
 
 
+# --- Deputados: endpoints complementares ---
+
+
+class OrgaoDeputadoAPI(BaseModel):
+    """Committee/body that a deputy participates in."""
+
+    idOrgao: int | None = None
+    siglaOrgao: str | None = None
+    nomeOrgao: str | None = None
+    nomePublicacao: str | None = None
+    titulo: str | None = None  # cargo (Titular, Suplente, Presidente)
+    codTitulo: int | None = None
+    dataInicio: str | None = None
+    dataFim: str | None = None
+
+
+class FrenteAPI(BaseModel):
+    """Parliamentary front that a deputy is part of."""
+
+    id: int
+    uri: str | None = None
+    titulo: str
+    idSituacao: int | None = None
+
+
+class ProfissaoAPI(BaseModel):
+    """Deputy profession/education."""
+
+    titulo: str | None = None
+    codTipoProfissao: int | None = None
+    dataHora: str | None = None
+
+
+class HistoricoAPI(BaseModel):
+    """Deputy status history (party changes, leaves, etc.)."""
+
+    id: int | None = None
+    uri: str | None = None
+    nome: str | None = None
+    siglaPartido: str | None = None
+    siglaUf: str | None = None
+    idLegislatura: int | None = None
+    urlFoto: str | None = None
+    email: str | None = None
+    data: str | None = None
+    nomeEleitoral: str | None = None
+    descricaoStatus: str | None = None
+    situacao: str | None = None
+
+
+class EventoDeputadoAPI(BaseModel):
+    """Event that a deputy participated in."""
+
+    id: int
+    uri: str | None = None
+    dataHoraInicio: str | None = None
+    dataHoraFim: str | None = None
+    descricaoTipo: str | None = None
+    descricao: str | None = None
+    situacao: str | None = None
+
+
 # --- Referências ---
 
 

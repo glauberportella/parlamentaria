@@ -413,6 +413,105 @@ class CamaraClient:
         dados = await self._get_dados(f"/deputados/{deputado_id}/despesas", params)
         return [DespesaAPI(**item) for item in dados]
 
+    async def obter_orgaos_deputado(
+        self,
+        deputado_id: int,
+    ) -> list["OrgaoDeputadoAPI"]:
+        """Get committees/bodies a deputy participates in.
+
+        Args:
+            deputado_id: Deputy ID.
+
+        Returns:
+            List of committees with role and period.
+        """
+        from app.integrations.camara_types import OrgaoDeputadoAPI
+
+        dados = await self._get_dados(f"/deputados/{deputado_id}/orgaos")
+        return [OrgaoDeputadoAPI(**item) for item in dados]
+
+    async def obter_frentes_deputado(
+        self,
+        deputado_id: int,
+    ) -> list["FrenteAPI"]:
+        """Get parliamentary fronts a deputy belongs to.
+
+        Args:
+            deputado_id: Deputy ID.
+
+        Returns:
+            List of parliamentary fronts.
+        """
+        from app.integrations.camara_types import FrenteAPI
+
+        dados = await self._get_dados(f"/deputados/{deputado_id}/frentes")
+        return [FrenteAPI(**item) for item in dados]
+
+    async def obter_profissoes_deputado(
+        self,
+        deputado_id: int,
+    ) -> list["ProfissaoAPI"]:
+        """Get professions of a deputy.
+
+        Args:
+            deputado_id: Deputy ID.
+
+        Returns:
+            List of professions.
+        """
+        from app.integrations.camara_types import ProfissaoAPI
+
+        dados = await self._get_dados(f"/deputados/{deputado_id}/profissoes")
+        return [ProfissaoAPI(**item) for item in dados]
+
+    async def obter_historico_deputado(
+        self,
+        deputado_id: int,
+    ) -> list["HistoricoAPI"]:
+        """Get status history of a deputy (party changes, leaves).
+
+        Args:
+            deputado_id: Deputy ID.
+
+        Returns:
+            List of historical status records.
+        """
+        from app.integrations.camara_types import HistoricoAPI
+
+        dados = await self._get_dados(f"/deputados/{deputado_id}/historico")
+        return [HistoricoAPI(**item) for item in dados]
+
+    async def obter_eventos_deputado(
+        self,
+        deputado_id: int,
+        data_inicio: str | None = None,
+        data_fim: str | None = None,
+        pagina: int = 1,
+        itens: int = 15,
+    ) -> list["EventoDeputadoAPI"]:
+        """Get events a deputy participated in.
+
+        Args:
+            deputado_id: Deputy ID.
+            data_inicio: Start date filter (YYYY-MM-DD).
+            data_fim: End date filter (YYYY-MM-DD).
+            pagina: Page number.
+            itens: Items per page.
+
+        Returns:
+            List of events.
+        """
+        from app.integrations.camara_types import EventoDeputadoAPI
+
+        params = self._clean_params({
+            "dataInicio": data_inicio,
+            "dataFim": data_fim,
+            "pagina": pagina,
+            "itens": itens,
+        })
+        dados = await self._get_dados(f"/deputados/{deputado_id}/eventos", params)
+        return [EventoDeputadoAPI(**item) for item in dados]
+
     # ------------------------------------------------------------------
     # Eventos
     # ------------------------------------------------------------------
