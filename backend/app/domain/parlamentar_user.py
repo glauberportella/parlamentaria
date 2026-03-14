@@ -79,6 +79,12 @@ class ParlamentarUser(Base):
     notificacoes_email: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True
     )
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        doc="Whether this user has admin privileges in the dashboard",
+    )
     refresh_token_hash: Mapped[str | None] = mapped_column(
         String(128),
         nullable=True,

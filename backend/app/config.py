@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://parlamentaria:parlamentaria@localhost:5432/parlamentaria"
 
     # Redis
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = "redis://:parlamentaria@localhost:6379/0"
 
     # API Câmara
     camara_api_base_url: str = "https://dadosabertos.camara.leg.br/api/v2"
