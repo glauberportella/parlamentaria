@@ -27,15 +27,8 @@ services:
       - APP_ENV=development
       - APP_DEBUG=true
       - LOG_LEVEL=DEBUG
-    # Gunicorn como no homelab (simula produção), mas com 2 workers
-    command: >
-      python -m gunicorn app.main:app
-      -w 2
-      -k uvicorn.workers.UvicornWorker
-      --bind 0.0.0.0:8000
-      --access-logfile -
-      --error-logfile -
-      --timeout 120
+    # Dev: hot-reload ativado
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 
   celery-worker:
@@ -78,8 +71,12 @@ services:
       POSTGRES_DB: parlamentaria
       POSTGRES_USER: parlamentaria
       POSTGRES_PASSWORD: parlamentaria
+    # Dev: expor porta para debug com IDE/pgAdmin
+    ports: ["5432:5432"]
     restart: unless-stopped
 
   redis:
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # Dev: config leve, sem AOF, porta exposta para debug
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-parlamentaria}
+    ports: ["6379:6379"]
     restart: unless-stopped

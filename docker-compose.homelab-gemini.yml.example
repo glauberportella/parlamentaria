@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
 
   redis:
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD:-P4R14M3NT4R14} --maxmemory 512mb
     restart: unless-stopped
 
   # Cloudflare Tunnel
