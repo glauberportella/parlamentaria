@@ -225,8 +225,8 @@ async def listar_proposicoes(
             func.coalesce(vote_subq.c.votos_sim, 0).label("votos_sim"),
             func.coalesce(vote_subq.c.votos_nao, 0).label("votos_nao"),
             func.coalesce(vote_subq.c.votos_abstencao, 0).label("votos_abstencao"),
-            func.coalesce(analise_subq.c.tem_analise, False).label("tem_analise"),
-            func.coalesce(comparativo_subq.c.tem_comparativo, False).label(
+            func.coalesce(analise_subq.c.tem_analise, 0).label("tem_analise"),
+            func.coalesce(comparativo_subq.c.tem_comparativo, 0).label(
                 "tem_comparativo"
             ),
         )
