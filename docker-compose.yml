@@ -4,7 +4,7 @@ services:
     ports: ["8000:8000"]
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://parlamentaria:parlamentaria@db:5432/parlamentaria
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-parlamentaria}:${POSTGRES_PASSWORD:-parlamentaria}@db:5432/${POSTGRES_DB:-parlamentaria}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-parlamentaria}@redis:6379/0
     depends_on:
       db:
@@ -22,9 +22,9 @@ services:
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: parlamentaria
-      POSTGRES_USER: parlamentaria
-      POSTGRES_PASSWORD: parlamentaria
+      POSTGRES_DB: ${POSTGRES_DB:-parlamentaria}
+      POSTGRES_USER: ${POSTGRES_USER:-parlamentaria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-parlamentaria}
     # Porta NÃO exposta por padrão (segurança). Usar override local para debug.
     # ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
@@ -53,7 +53,7 @@ services:
     command: celery -A app.tasks worker -l info --concurrency=2
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://parlamentaria:parlamentaria@db:5432/parlamentaria
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-parlamentaria}:${POSTGRES_PASSWORD:-parlamentaria}@db:5432/${POSTGRES_DB:-parlamentaria}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-parlamentaria}@redis:6379/0
     depends_on:
       db:
