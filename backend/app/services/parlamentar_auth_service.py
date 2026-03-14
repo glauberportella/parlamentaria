@@ -293,6 +293,7 @@ class ParlamentarAuthService:
         tipo: str = "ASSESSOR",
         cargo: str | None = None,
         deputado_id: int | None = None,
+        is_admin: bool = False,
     ) -> ParlamentarUser:
         """Create a new parlamentar user with an invitation code.
 
@@ -319,6 +320,7 @@ class ParlamentarAuthService:
             cargo=cargo,
             deputado_id=deputado_id,
             codigo_convite=codigo,
+            is_admin=is_admin,
             ativo=True,
         )
         self.session.add(user)

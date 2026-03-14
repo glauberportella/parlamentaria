@@ -195,6 +195,7 @@ async def create_invitation(
         tipo=body.tipo,
         cargo=body.cargo,
         deputado_id=body.deputado_id,
+        is_admin=body.is_admin,
     )
 
     return ConviteCreateResponse(

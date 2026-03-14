@@ -92,6 +92,7 @@ class ConviteCreateRequest(BaseModel):
     cargo: str | None = None
     tipo: str = "ASSESSOR"
     deputado_id: int | None = None
+    is_admin: bool = False
 
 
 class ConviteCreateResponse(BaseModel):
