@@ -76,6 +76,55 @@ class Settings(BaseSettings):
     # CORS
     cors_extra_origins: str = ""  # Comma-separated additional CORS origins
 
+    # Social Media Agent
+    social_enabled: bool = False
+    social_moderation_enabled: bool = False
+    social_networks: str = "twitter,facebook,instagram,linkedin,discord,reddit"
+    social_weekly_hour: int = 10
+    social_vote_threshold: int = 50
+    social_relevant_types: str = "PEC,MPV,PL,PLP,PDL"
+    social_educational_enabled: bool = True
+    social_cta_url: str = "https://t.me/ParlamentariaBot"
+    social_images_dir: str = "/app/data/social_images"
+    social_images_public_url: str = ""
+
+    # Twitter/X
+    twitter_enabled: bool = False
+    twitter_api_key: str = ""
+    twitter_api_secret: str = ""
+    twitter_access_token: str = ""
+    twitter_access_token_secret: str = ""
+
+    # Facebook
+    facebook_enabled: bool = False
+    facebook_page_id: str = ""
+    facebook_page_access_token: str = ""
+
+    # Instagram
+    instagram_enabled: bool = False
+    instagram_user_id: str = ""
+    instagram_access_token: str = ""
+
+    # LinkedIn
+    linkedin_enabled: bool = False
+    linkedin_organization_id: str = ""
+    linkedin_access_token: str = ""
+
+    # Discord
+    discord_enabled: bool = False
+    discord_webhook_votacoes: str = ""
+    discord_webhook_resumo: str = ""
+    discord_webhook_educativo: str = ""
+    discord_webhook_geral: str = ""
+
+    # Reddit
+    reddit_enabled: bool = False
+    reddit_client_id: str = ""
+    reddit_client_secret: str = ""
+    reddit_username: str = "ParlamentariaBot"
+    reddit_password: str = ""
+    reddit_subreddit: str = "parlamentaria"
+
     # Dashboard Parlamentar — Auth & JWT
     dashboard_url: str = "http://localhost:3000"
     jwt_secret_key: str = "change-me-jwt-secret-key-64-chars"

@@ -20,6 +20,15 @@ from app.tasks.notificar_eleitores import (  # noqa: F401
     notificar_eleitores_task,
     notificar_comparativo_task,
 )
+from app.tasks.social_media_tasks import (  # noqa: F401
+    post_resumo_semanal_task,
+    post_comparativo_task,
+    post_votacao_relevante_task,
+    post_explicativo_educativo_task,
+    post_destaque_proposicao_task,
+    atualizar_metricas_task,
+    publicar_post_aprovado_task,
+)
 
 # Celery CLI expects `app.tasks.celery` or `app.tasks.app` when invoked with -A app.tasks
 celery = celery_app

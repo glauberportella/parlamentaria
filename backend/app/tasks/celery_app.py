@@ -21,6 +21,7 @@ celery_app = Celery(
         "app.tasks.generate_embeddings",
         "app.tasks.generate_analysis",
         "app.tasks.send_digests",
+        "app.tasks.social_media_tasks",
     ],
 )
 
@@ -130,6 +131,23 @@ celery_app.conf.beat_schedule = {
             minute=0,
             day_of_week=settings.digest_weekly_day,
         ),
+        "args": (),
+    },
+    # === Social Media ===
+    # Weekly summary: posted after weekly digest (default: Mondays at SOCIAL_WEEKLY_HOUR)
+    "social-resumo-semanal": {
+        "task": "app.tasks.social_media_tasks.post_resumo_semanal_task",
+        "schedule": crontab(
+            hour=settings.social_weekly_hour,
+            minute=0,
+            day_of_week=settings.digest_weekly_day,
+        ),
+        "args": (),
+    },
+    # Metrics update: 4x/day (every 6 hours)
+    "social-atualizar-metricas": {
+        "task": "app.tasks.social_media_tasks.atualizar_metricas_task",
+        "schedule": crontab(hour="0,6,12,18", minute=15),
         "args": (),
     },
 }

@@ -30,6 +30,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd --gid 1000 appuser \
     && useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
 
+# Install Playwright Chromium browser and system dependencies
+RUN pip install --no-cache-dir playwright \
+    && playwright install --with-deps chromium
+
 WORKDIR /app
 
 # Copy installed Python packages from builder stage
@@ -41,6 +45,9 @@ COPY alembic/ ./alembic/
 
 # Copy application code
 COPY app/ ./app/
+
+# Create directory for social media generated images
+RUN mkdir -p /app/data/social_images && chown appuser:appuser /app/data/social_images
 
 # Non-root user
 USER appuser
