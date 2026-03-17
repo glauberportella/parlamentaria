@@ -64,6 +64,12 @@ services:
       - ./agents:/app/agents
       - ./channels:/app/channels
       - ./backend/app:/app/app
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.tasks inspect ping --timeout 10 2>/dev/null | grep -q OK || exit 1"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
     restart: unless-stopped
 
   celery-beat:
@@ -79,6 +85,12 @@ services:
       - ./agents:/app/agents
       - ./channels:/app/channels
       - ./backend/app:/app/app
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.tasks inspect ping --timeout 10 2>/dev/null | grep -q OK || exit 1"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
     restart: unless-stopped
 
 volumes:
