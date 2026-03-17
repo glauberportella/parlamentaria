@@ -1456,3 +1456,422 @@ No Parlamentaria, 68% dos eleitores votaram **SIM** nesta proposição.
 
 *Flair: Explicativo*
 ```
+
+---
+
+## 17. Guia de Configuração por Rede Social
+
+> Passo a passo prático para configurar cada rede social e obter as credenciais
+> necessárias para os adapters (publishers). Ao final de cada seção, as variáveis
+> de ambiente correspondentes estão listadas — preencha-as no `.env`.
+
+### 17.1 Twitter / X
+
+#### Pré-requisitos
+- Conta X (Twitter) que será a identidade pública do projeto (ex: `@Parlamentaria`).
+- Email e telefone verificados na conta.
+
+#### Passo a Passo
+
+1. **Criar conta de desenvolvedor**
+   - Acesse [developer.x.com](https://developer.x.com/) e clique em "Sign up for Free Account".
+   - Faça login com a conta `@Parlamentaria`.
+   - Descreva o uso: _"Automated posting of legislative transparency data — vote results, comparisons between popular opinion and parliamentary votes, and educational content about Brazilian legislation."_
+   - Aceite os termos de uso da API.
+
+2. **Criar um App no Developer Portal**
+   - Em **Projects & Apps → + Create App**, dê um nome ao app (ex: `parlamentaria-social`).
+   - O portal gera automaticamente:
+     - `API Key` → variável `TWITTER_API_KEY`
+     - `API Key Secret` → variável `TWITTER_API_SECRET`
+
+3. **Configurar permissões do App**
+   - Na aba **Settings → User authentication settings**, clique em **Set up**.
+   - Selecione **Read and Write** (necessário para postar tweets e fazer upload de mídia).
+   - Em **Type of App**, selecione **Web App, Automated App or Bot**.
+   - Preencha os campos obrigatórios de callback URL (ex: `https://parlamentaria.app/callback` — não será usado, mas é obrigatório).
+   - Salve.
+
+4. **Gerar Access Token e Secret**
+   - Na aba **Keys and Tokens**, seção **Authentication Tokens**, clique em **Generate** para:
+     - `Access Token` → variável `TWITTER_ACCESS_TOKEN`
+     - `Access Token Secret` → variável `TWITTER_ACCESS_TOKEN_SECRET`
+   - **Importante**: esses tokens dão permissão de leitura E escrita na conta. Guarde-os em local seguro.
+
+5. **Validar configuração**
+   - O `TwitterPublisher` usa tweepy com OAuth 1.0a User Context (v1.1 para media upload) e tweepy.Client (v2 para criação de tweets).
+   - Teste com o endpoint admin: `POST /admin/social/preview` (gera post sem publicar).
+
+#### Limites do Free Tier
+- **1.500 tweets/mês** (criação) — suficiente para ~50/dia.
+- **50 requests/15min** (leitura de métricas).
+- Upload de mídia **ilimitado** via API v1.1.
+- Se precisar escalar: Basic Tier a $100/mês → 3.000 tweets/mês + App-only auth.
+
+#### Variáveis de Ambiente
+
+```bash
+TWITTER_ENABLED=true
+TWITTER_API_KEY=<API Key do App>
+TWITTER_API_SECRET=<API Key Secret do App>
+TWITTER_ACCESS_TOKEN=<Access Token da conta @Parlamentaria>
+TWITTER_ACCESS_TOKEN_SECRET=<Access Token Secret>
+```
+
+---
+
+### 17.2 Facebook
+
+#### Pré-requisitos
+- Conta pessoal do Facebook (admin) vinculada à **Página** do projeto.
+- Página do Facebook criada (ex: "Parlamentaria — Democracia Participativa").
+
+#### Passo a Passo
+
+1. **Criar Facebook App**
+   - Acesse [developers.facebook.com](https://developers.facebook.com/) e clique em **My Apps → Create App**.
+   - Selecione **Business** como tipo de app.
+   - Dê um nome (ex: `Parlamentaria Social`) e associe a uma Business Account (ou crie uma).
+
+2. **Adicionar o produto "Facebook Login for Business"**
+   - No dashboard do app, em **Add Products**, adicione **Facebook Login**.
+   - Configure o redirect URI (ex: `https://parlamentaria.app/auth/facebook/callback`).
+
+3. **Obter permissões necessárias**
+   - Na seção **App Review → Permissions and Features**, solicite:
+     - `pages_manage_posts` — postar na página.
+     - `pages_read_engagement` — ler métricas de engajamento.
+   - **Importante**: essas permissões requerem aprovação da Meta. Submeta o pedido com descrição clara do uso (publicação automatizada de dados legislativos).
+   - Enquanto a aprovação não sai, use **Test Users** (em Roles → Test Users) para desenvolvimento.
+
+4. **Gerar Page Access Token de longa duração**
+   - No [Graph API Explorer](https://developers.facebook.com/tools/explorer/):
+     - Selecione o app criado.
+     - Em **User or Page**, selecione a Página.
+     - Gere um **User Token** com permissões `pages_manage_posts` e `pages_read_engagement`.
+   - Converta para **Long-Lived Token** (60 dias):
+     ```bash
+     curl -G "https://graph.facebook.com/v21.0/oauth/access_token" \
+       -d "grant_type=fb_exchange_token" \
+       -d "client_id=<APP_ID>" \
+       -d "client_secret=<APP_SECRET>" \
+       -d "fb_exchange_token=<SHORT_LIVED_TOKEN>"
+     ```
+   - Converta para **Page Token permanente** (nunca expira):
+     ```bash
+     curl -G "https://graph.facebook.com/v21.0/me/accounts" \
+       -d "access_token=<LONG_LIVED_USER_TOKEN>"
+     ```
+     O `access_token` retornado para a página é **permanente** (não expira enquanto as permissões forem válidas).
+   - Copie o valor → variável `FACEBOOK_PAGE_ACCESS_TOKEN`.
+
+5. **Obter Page ID**
+   - No mesmo resultado do passo anterior, copie o campo `id` da página.
+   - Ou acesse a página, vá em **Sobre → Transparência da Página** → o ID numérico está na URL.
+   - → variável `FACEBOOK_PAGE_ID`.
+
+#### Limites
+- **200 chamadas/hora/usuário** — mais que suficiente.
+- Posts na página não possuem limite diário explícito.
+
+#### Variáveis de Ambiente
+
+```bash
+FACEBOOK_ENABLED=true
+FACEBOOK_PAGE_ID=<ID numérico da Página>
+FACEBOOK_PAGE_ACCESS_TOKEN=<Page Token permanente>
+```
+
+---
+
+### 17.3 Instagram
+
+#### Pré-requisitos
+- **Conta Instagram Business** (não pessoal) — converter em Configurações → Conta → Mudar para conta profissional.
+- **Facebook Page** vinculada à conta Instagram (obrigatório pela Meta).
+- **Facebook App** já criado (mesma app da Seção 17.2).
+- **URL pública** para servir imagens — Instagram **não aceita upload direto**; a imagem deve estar acessível via HTTPS.
+
+#### Passo a Passo
+
+1. **Vincular Instagram à Facebook Page**
+   - Na Facebook Page, vá em **Configurações → Instagram** e conecte a conta Instagram Business.
+
+2. **Adicionar permissões ao Facebook App**
+   - No app criado na Seção 17.2, solicite permissões adicionais:
+     - `instagram_basic` — acesso básico ao perfil.
+     - `instagram_content_publish` — publicar conteúdo.
+   - Estas permissões **também requerem App Review** da Meta.
+
+3. **Obter Instagram User ID**
+   - Com o Page Token obtido na Seção 17.2, consulte:
+     ```bash
+     curl -G "https://graph.facebook.com/v21.0/<PAGE_ID>" \
+       -d "fields=instagram_business_account" \
+       -d "access_token=<PAGE_TOKEN>"
+     ```
+   - O campo `instagram_business_account.id` é o → variável `INSTAGRAM_USER_ID`.
+
+4. **Reutilizar o Page Access Token**
+   - O mesmo token permanente gerado na Seção 17.2 funciona para Instagram.
+   - → variável `INSTAGRAM_ACCESS_TOKEN` (mesmo valor de `FACEBOOK_PAGE_ACCESS_TOKEN`).
+
+5. **Configurar URL pública para imagens**
+   - O `InstagramPublisher` usa Container-based Publishing (2 chamadas):
+     1. `POST /{ig-user-id}/media` com `image_url` + `caption` → cria container.
+     2. `POST /{ig-user-id}/media_publish` → publica o container.
+   - A `image_url` deve ser HTTPS e acessível publicamente. Opções:
+     - Endpoint estático do FastAPI servindo as imagens geradas (ex: `https://parlamentaria.app/images/xxx.png`).
+     - Pre-signed URL de storage (S3, GCS).
+   - Configure `SOCIAL_IMAGES_PUBLIC_URL` para o base URL público.
+
+#### Limites
+- **25 publicações por dia** (Container Publishing API).
+- Apenas imagens e carrosséis — sem posts só-texto.
+
+#### Variáveis de Ambiente
+
+```bash
+INSTAGRAM_ENABLED=true
+INSTAGRAM_USER_ID=<Instagram Business Account ID>
+INSTAGRAM_ACCESS_TOKEN=<mesmo Page Token permanente do Facebook>
+SOCIAL_IMAGES_PUBLIC_URL=https://parlamentaria.app/images
+```
+
+---
+
+### 17.4 LinkedIn
+
+#### Pré-requisitos
+- **LinkedIn Page** (Organization) do Parlamentaria — criada por um perfil pessoal que será admin.
+- Conta pessoal com permissão de admin na Page.
+
+#### Passo a Passo
+
+1. **Criar LinkedIn Page (Organization)**
+   - Acesse [linkedin.com/company/setup](https://www.linkedin.com/company/setup/new/) e crie a página como **Organização Sem Fins Lucrativos** ou **Empresa**.
+   - Nome: "Parlamentaria — Democracia Participativa".
+
+2. **Criar App no LinkedIn Developer Portal**
+   - Acesse [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps) → **Create App**.
+   - Vincule a app à LinkedIn Page criada.
+   - Url do app: `https://parlamentaria.app`.
+
+3. **Solicitar produtos de API**
+   - Na aba **Products**, solicite:
+     - **Share on LinkedIn** — permite postar como Organization.
+     - **Marketing Developer Platform** — acesso completo à API de posts organizacionais.
+   - **Atenção**: o Marketing Developer Platform **requer aprovação manual** do LinkedIn.
+     O processo pode levar dias/semanas. Submeta cedo (durante a Fase 1 do projeto).
+
+4. **Configurar OAuth 2.0**
+   - Na aba **Auth**, anote:
+     - `Client ID` → será usado no fluxo OAuth.
+     - `Client Secret` → será usado no fluxo OAuth.
+   - Em **OAuth 2.0 Scopes**, garanta que `w_organization_social` está disponível (vem com o produto Marketing Developer Platform).
+
+5. **Obter Access Token (OAuth 2.0 3-legged)**
+   - O LinkedIn exige fluxo OAuth 2.0 com interação do usuário (consent screen) para obter o token inicial.
+   - Fluxo simplificado para obtenção única:
+     ```
+     1. Abra no navegador:
+        https://www.linkedin.com/oauth/v2/authorization?response_type=code
+          &client_id=<CLIENT_ID>
+          &redirect_uri=https://parlamentaria.app/auth/linkedin/callback
+          &scope=w_organization_social%20r_organization_social
+
+     2. Autorize o app com a conta admin da Page.
+
+     3. Copie o `code` da URL de callback.
+
+     4. Troque por access token:
+        curl -X POST https://www.linkedin.com/oauth/v2/accessToken \
+          -d "grant_type=authorization_code" \
+          -d "code=<CODE>" \
+          -d "client_id=<CLIENT_ID>" \
+          -d "client_secret=<CLIENT_SECRET>" \
+          -d "redirect_uri=https://parlamentaria.app/auth/linkedin/callback"
+     ```
+   - O token retornado dura **60 dias**. O `refresh_token` (se disponível com o produto aprovado) permite renovação automática.
+   - → variável `LINKEDIN_ACCESS_TOKEN`.
+
+6. **Obter Organization ID**
+   - Na URL da LinkedIn Page, o slug é o nome da organização. Para obter o ID numérico:
+     ```bash
+     curl -G "https://api.linkedin.com/v2/organizations" \
+       -d "q=vanityName" \
+       -d "vanityName=parlamentaria" \
+       -H "Authorization: Bearer <ACCESS_TOKEN>"
+     ```
+   - Ou consulte na aba **Admin** da Page → URL contém o ID.
+   - → variável `LINKEDIN_ORGANIZATION_ID`.
+
+#### Limites
+- **100 posts/dia** por Organization — amplo.
+- Rate limit geral: 100 requests/dia por app para certas APIs de leitura.
+
+#### Variáveis de Ambiente
+
+```bash
+LINKEDIN_ENABLED=true
+LINKEDIN_ORGANIZATION_ID=<ID numérico da Organization>
+LINKEDIN_ACCESS_TOKEN=<OAuth 2.0 Access Token>
+```
+
+**Nota sobre renovação**: o token expira em 60 dias. Implementar renovação automática
+via `refresh_token` ou re-autenticação periódica manual. O `LinkedInPublisher` deve
+tratar `401 Unauthorized` e logar alerta para renovação.
+
+---
+
+### 17.5 Discord
+
+#### Pré-requisitos
+- Conta Discord (gratuita).
+
+#### Passo a Passo
+
+1. **Criar servidor Discord**
+   - No Discord, clique em **+** (Adicionar um servidor) → **Criar o meu**.
+   - Nome: "Parlamentaria — Democracia Participativa".
+   - Personalize com ícone e descrição do projeto.
+
+2. **Criar canais temáticos**
+   - Crie os canais de texto recomendados:
+     - `#votações` — comparativos e votações relevantes.
+     - `#resumo-semanal` — resumo semanal automático.
+     - `#educativo` — posts explicativos de proposições.
+     - `#geral` — destaques e alertas gerais.
+
+3. **Criar Webhooks (um por canal)**
+   - Para cada canal: clique com botão direito no canal → **Editar Canal** → **Integrações** → **Webhooks** → **Novo Webhook**.
+   - Dê um nome ao webhook (ex: "Parlamentaria Bot").
+   - Clique em **Copiar URL do Webhook** — este é o valor da variável de ambiente.
+   - Repita para cada canal diferente.
+
+4. **Configurar variáveis por canal**
+   - O sistema suporta 4 webhooks independentes (um por tipo de conteúdo):
+     - `DISCORD_WEBHOOK_URL_VOTACAO` — canal `#votações`
+     - `DISCORD_WEBHOOK_URL_RESUMO` — canal `#resumo-semanal`
+     - `DISCORD_WEBHOOK_URL_EDUCATIVO` — canal `#educativo`
+     - `DISCORD_WEBHOOK_URL_GERAL` — canal `#geral`
+   - Se quiser tudo no mesmo canal, use a mesma URL em todas as variáveis.
+
+5. **Configurar link de convite permanente**
+   - Vá em **Configurações do Servidor → Convites** → crie um link que nunca expira.
+   - Divulgue o link nos posts de outras redes sociais como CTA.
+
+#### Limites
+- **30 mensagens/minuto** por webhook — mais que suficiente.
+- Sem limite de embeds por mensagem (até 10 embeds por request).
+- **Sem autenticação OAuth** — cada webhook é apenas uma URL secreta.
+
+#### Variáveis de Ambiente
+
+```bash
+DISCORD_ENABLED=true
+DISCORD_WEBHOOK_URL_VOTACAO=https://discord.com/api/webhooks/<id>/<token>
+DISCORD_WEBHOOK_URL_RESUMO=https://discord.com/api/webhooks/<id>/<token>
+DISCORD_WEBHOOK_URL_EDUCATIVO=https://discord.com/api/webhooks/<id>/<token>
+DISCORD_WEBHOOK_URL_GERAL=https://discord.com/api/webhooks/<id>/<token>
+```
+
+**Segurança**: URLs de webhook do Discord são **secretas** — quem tem a URL pode postar
+no canal. Nunca exponha em código público ou logs.
+
+---
+
+### 17.6 Reddit
+
+#### Pré-requisitos
+- Conta Reddit dedicada ao projeto (ex: `u/ParlamentariaBot`).
+- A conta precisa de email verificado.
+
+#### Passo a Passo
+
+1. **Criar conta Reddit**
+   - Crie a conta em [reddit.com/register](https://www.reddit.com/register).
+   - Use um email dedicado do projeto e verifique-o.
+   - **Nota sobre karma**: contas novas têm restrições de rate limit. Participe organicamente
+     em alguns subreddits nos primeiros dias para acumular karma mínimo (~10 comment karma).
+
+2. **Registrar Reddit App (Script)**
+   - Com a conta logada, acesse [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps).
+   - Clique em **"create another app..."** (no final da página).
+   - Preencha:
+     - **Name**: `parlamentaria-social`
+     - **App type**: selecione **script** (para uso server-side autenticado como a própria conta).
+     - **Description**: _"Automated publishing of Brazilian legislative transparency data."_
+     - **About URL**: `https://parlamentaria.app`
+     - **Redirect URI**: `http://localhost:8080` (obrigatório, mas não usado em apps tipo script).
+   - Clique em **Create app**.
+   - Anote:
+     - O ID logo abaixo do nome do app (string alfanumérica) → variável `REDDIT_CLIENT_ID`.
+     - O campo **secret** → variável `REDDIT_CLIENT_SECRET`.
+
+3. **Criar subreddit r/parlamentaria**
+   - Acesse [reddit.com/subreddits/create](https://www.reddit.com/subreddits/create).
+   - Nome: `parlamentaria` (se disponível).
+   - Tipo: **Public**.
+   - Configure:
+     - **Descrição**: _"Parlamentaria — Democracia participativa. Votos populares, comparativos legislativos e transparência."_
+     - **Sidebar**: informações sobre o projeto, link para o bot Telegram e o site.
+     - **Regras**: crie regras básicas (respeito, sem spam, sem discurso de ódio).
+   - **Flairs de post** recomendados:
+     - `📊 Comparativo` — posts de comparação popular vs Câmara.
+     - `🗳️ Votação` — resultados de votação popular.
+     - `📚 Explicativo` — posts educativos sobre proposições.
+     - `📈 Resumo Semanal` — resumos periódicos.
+     - `💬 Discussão` — posts gerados pela comunidade.
+   - A conta `u/ParlamentariaBot` será automaticamente moderadora do sub.
+
+4. **Configurar PRAW**
+   - O `RedditPublisher` usa PRAW (síncrono) — roda em thread separada dentro do Celery worker.
+   - As credenciais são: Client ID, Client Secret, username e password da conta Reddit.
+   - O user agent deve seguir o formato recomendado: `parlamentaria:v1.0 (by u/ParlamentariaBot)`.
+
+#### Limites
+- **Contas novas**: ~1 post a cada 10 min (melhora com karma).
+- **Contas com karma**: sem limite prático relevante para o volume esperado.
+- **API rate limit**: 60 requests/minuto (OAuth2).
+- **Imagens**: upload direto suportado via `subreddit.submit_image()`.
+
+#### Variáveis de Ambiente
+
+```bash
+REDDIT_ENABLED=true
+REDDIT_CLIENT_ID=<ID do App script>
+REDDIT_CLIENT_SECRET=<Secret do App>
+REDDIT_USERNAME=ParlamentariaBot
+REDDIT_PASSWORD=<senha da conta Reddit>
+REDDIT_SUBREDDIT=parlamentaria
+```
+
+**Segurança**: a senha da conta Reddit é armazenada em texto nas variáveis de ambiente.
+Use secrets manager em produção (Docker secrets, Vault, etc.). Nunca commite no repositório.
+
+---
+
+### 17.7 Checklist Geral de Configuração
+
+Tabela resumo para verificar se tudo está configurado antes de ativar cada rede:
+
+| Rede       | Conta Criada | App/Webhook | Permissões Aprovadas | Tokens Gerados | `.env` Preenchido | Teste OK |
+|------------|:---:|:---:|:---:|:---:|:---:|:---:|
+| Twitter/X  | ☐ | ☐ | ☐ (Read+Write) | ☐ | ☐ | ☐ |
+| Facebook   | ☐ | ☐ | ☐ (App Review)  | ☐ | ☐ | ☐ |
+| Instagram  | ☐ | ☐ | ☐ (App Review)  | ☐ | ☐ | ☐ |
+| LinkedIn   | ☐ | ☐ | ☐ (Marketing Dev)| ☐ | ☐ | ☐ |
+| Discord    | ☐ | ☐ | N/A              | N/A | ☐ | ☐ |
+| Reddit     | ☐ | ☐ | N/A              | ☐ | ☐ | ☐ |
+
+**Ordem recomendada de setup** (por complexidade):
+1. **Discord** — pronto em 5 minutos, sem aprovação.
+2. **Twitter/X** — Developer Account rápida, Free Tier imediato.
+3. **Reddit** — App script simples, mas conta nova tem rate limits iniciais.
+4. **Facebook** — App Review pode demorar dias/semanas.
+5. **Instagram** — depende do Facebook App aprovado + URL pública para imagens.
+6. **LinkedIn** — Marketing Developer Platform requer aprovação manual (mais demorado).
+
+**Dica**: submeta as solicitações de App Review (Facebook, Instagram, LinkedIn) **na Fase 1**
+do desenvolvimento, para que estejam aprovadas quando os publishers estiverem prontos na Fase 4.
