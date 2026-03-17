@@ -149,7 +149,7 @@ Gere a análise estruturada em JSON conforme instruído."""
                 config=genai_types.GenerateContentConfig(
                     system_instruction=_SYSTEM_INSTRUCTION,
                     temperature=0.3,
-                    max_output_tokens=2048,
+                    max_output_tokens=8192,
                     response_mime_type="application/json",
                 ),
             )
