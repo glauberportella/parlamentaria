@@ -308,6 +308,7 @@ parlamentaria/
 │   │   │   ├── __init__.py
 │   │   │   ├── webhooks.py          # Webhook Telegram / WhatsApp
 │   │   │   ├── admin.py             # Endpoints administrativos
+│   │   │   ├── cidadao.py           # Endpoints públicos do Painel do Cidadão
 │   │   │   ├── health.py            # Health checks
 │   │   │   ├── rss.py               # RSS/Atom Feed público
 │   │   │   └── assinaturas.py       # Gestão de assinaturas webhook
@@ -1022,11 +1023,12 @@ graph LR
 
 ## 10. API Interna do Backend (Endpoints Admin/Webhooks)
 
-A API FastAPI **não é consumida por frontend**. Serve para:
+A API FastAPI **não é consumida por frontend** (exceto Painel do Cidadão). Serve para:
 - Receber **webhooks** dos mensageiros (Telegram, WhatsApp).
 - Endpoints **administrativos** para monitoramento e operações manuais.
 - **RSS Feed público** para parlamentares assinarem resultados de votação popular.
 - **Gestão de assinaturas** (RSS e Webhooks de saída).
+- **Painel do Cidadão** — endpoints públicos e read-only consumidos pelo site.
 - **Health checks** para orquestração Docker/K8s.
 
 ```
@@ -1066,6 +1068,16 @@ POST   /admin/rag/search                     # Teste de busca semântica (debugg
 # Health
 GET    /health                               # Health check simples
 GET    /health/detailed                      # Status de DB, Redis, API Câmara
+
+# Painel do Cidadão (público, sem auth, rate-limited)
+GET    /cidadao/resumo                       # KPIs, top proposições, temas ativos, timeline 30d
+GET    /cidadao/proposicoes                  # Lista paginada com filtros (tema, tipo, ano, busca)
+GET    /cidadao/proposicoes/{id}             # Detalhe com análise IA + comparativo
+GET    /cidadao/votos/por-tema               # Breakdown de votos por tema
+GET    /cidadao/votos/timeline?dias=30       # Série temporal diária de votos
+GET    /cidadao/votos/ranking?limite=10      # Ranking das proposições mais votadas
+GET    /cidadao/comparativos                 # Lista paginada comparativos pop vs câmara
+GET    /cidadao/comparativos/evolucao?meses=12 # Evolução mensal do alinhamento
 ```
 
 ---
@@ -1126,6 +1138,11 @@ DIGEST_BATCH_SIZE=50                # Eleitores processados por lote
 APP_ENV=development                  # development | staging | production
 APP_DEBUG=true
 LOG_LEVEL=INFO
+
+# CORS / Dashboard / Site
+DASHBOARD_URL=http://localhost:3000       # URL do painel parlamentar
+CIDADAO_SITE_URL=http://localhost:3001    # URL do site público (Painel do Cidadão)
+CORS_EXTRA_ORIGINS=                       # Origens CORS extras (separadas por vírgula)
 ```
 
 ---
