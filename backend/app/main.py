@@ -14,7 +14,7 @@ from app.config import settings
 from app.exceptions import AppException
 from app.logging import setup_logging, get_logger
 from app.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, limiter
-from app.routers import health, webhooks, admin, rss, assinaturas
+from app.routers import health, webhooks, admin, rss, assinaturas, cidadao
 from app.routers.parlamentar import router as parlamentar_router
 
 logger = get_logger(__name__)
@@ -61,7 +61,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS — always include dashboard_url; permissive in dev
-_cors_origins: list[str] = [settings.dashboard_url]
+_cors_origins: list[str] = [settings.dashboard_url, settings.cidadao_site_url]
 if settings.cors_extra_origins:
     _cors_origins.extend(
         o.strip() for o in settings.cors_extra_origins.split(",") if o.strip()
@@ -119,4 +119,5 @@ app.include_router(webhooks.router)
 app.include_router(admin.router)
 app.include_router(rss.router)
 app.include_router(assinaturas.router)
+app.include_router(cidadao.router)
 app.include_router(parlamentar_router)
