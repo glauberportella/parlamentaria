@@ -2,6 +2,7 @@
 
 from app.tasks.celery_app import celery_app  # noqa: F401
 from app.tasks.sync_proposicoes import sync_proposicoes_task  # noqa: F401
+from app.tasks.sync_proposicoes import sync_temas_proposicoes_task  # noqa: F401
 from app.tasks.sync_votacoes import sync_votacoes_task  # noqa: F401
 from app.tasks.sync_deputados import sync_deputados_task  # noqa: F401
 from app.tasks.sync_partidos import sync_partidos_task  # noqa: F401

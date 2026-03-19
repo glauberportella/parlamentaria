@@ -121,6 +121,7 @@ class PaginatedProposicoes(BaseModel):
     items: list[CidadaoProposicaoListItem]
     pagina: int
     itens_por_pagina: int
+    total_paginas: int
 
 
 class AnaliseIAPublica(BaseModel):
@@ -214,6 +215,7 @@ class PaginatedComparativos(BaseModel):
     items: list[ComparativoListItem]
     pagina: int
     itens_por_pagina: int
+    total_paginas: int
 
 
 class EvolucaoAlinhamentoItem(BaseModel):
@@ -538,11 +540,14 @@ async def listar_proposicoes(
             )
         )
 
+    total_paginas = (total + itens - 1) // itens if total > 0 else 0
+
     return PaginatedProposicoes(
         total=total,
         items=items,
         pagina=pagina,
         itens_por_pagina=itens,
+        total_paginas=total_paginas,
     )
 
 
@@ -851,11 +856,14 @@ async def listar_comparativos(
             )
         )
 
+    total_paginas_comp = (total + itens - 1) // itens if total > 0 else 0
+
     return PaginatedComparativos(
         total=total,
         items=items,
         pagina=pagina,
         itens_por_pagina=itens,
+        total_paginas=total_paginas_comp,
     )
 
 
