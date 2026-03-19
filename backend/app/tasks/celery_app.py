@@ -120,6 +120,12 @@ celery_app.conf.beat_schedule = {
         "args": (),
     },
     # === Madrugada — manutenção ===
+    # Backfill de temas para proposições com temas NULL (02:30)
+    "sync-temas-backfill": {
+        "task": "app.tasks.sync_proposicoes.sync_temas_proposicoes_task",
+        "schedule": crontab(hour=2, minute=30),  # 02:30
+        "args": (),
+    },
     "reindex-embeddings-daily": {
         "task": "app.tasks.generate_embeddings.reindex_all_embeddings_task",
         "schedule": crontab(hour=3, minute=0),  # 03:00
