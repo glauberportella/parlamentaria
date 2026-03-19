@@ -128,6 +128,9 @@ class Settings(BaseSettings):
 
     # Dashboard Parlamentar — Auth & JWT
     dashboard_url: str = "http://localhost:3000"
+
+    # Painel do Cidadão (site público)
+    cidadao_site_url: str = "http://localhost:3001"
     jwt_secret_key: str = "change-me-jwt-secret-key-64-chars"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15

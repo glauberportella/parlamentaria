@@ -35,6 +35,21 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     result_expires=3600,
+    # Broker connection retry — reconecta automaticamente ao Redis após queda/restart
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_connection_max_retries=None,  # Retry indefinidamente
+    broker_connection_timeout=30,
+    # Transport options: retry de operações no broker
+    broker_transport_options={
+        "retry_policy": {
+            "timeout": 30.0,
+            "max_retries": None,  # Infinito — nunca desiste
+            "interval_start": 1,  # Começa com 1s
+            "interval_step": 2,   # Incrementa 2s por tentativa
+            "interval_max": 30,   # Máximo 30s entre tentativas
+        },
+    },
 )
 
 # Periodic task schedule (Celery beat)
@@ -106,6 +121,12 @@ celery_app.conf.beat_schedule = {
         "args": (),
     },
     # === Madrugada — manutenção ===
+    # Backfill de temas para proposições com temas NULL (02:30)
+    "sync-temas-backfill": {
+        "task": "app.tasks.sync_proposicoes.sync_temas_proposicoes_task",
+        "schedule": crontab(hour=2, minute=30),  # 02:30
+        "args": (),
+    },
     "reindex-embeddings-daily": {
         "task": "app.tasks.generate_embeddings.reindex_all_embeddings_task",
         "schedule": crontab(hour=3, minute=0),  # 03:00
