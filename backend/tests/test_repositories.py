@@ -324,6 +324,48 @@ class TestVotoPopularRepository:
         results = await repo.list_by_eleitor(eleitor.id)
         assert len(results) == 1
 
+    async def test_delete_by_eleitor(
+        self, db_session: AsyncSession, sample_proposicao_data: dict, sample_eleitor_data: dict
+    ):
+        """delete_by_eleitor should remove all votes of a voter and return count."""
+        prop, eleitor, voto, repo = await self._setup_vote(
+            db_session, sample_proposicao_data, sample_eleitor_data
+        )
+
+        # Add a second proposition and vote
+        prop2 = Proposicao(
+            id=99999, tipo="PEC", numero=200, ano=2024,
+            ementa="Outra proposição",
+            data_apresentacao=date(2024, 5, 1),
+        )
+        db_session.add(prop2)
+        await db_session.flush()
+
+        voto2 = VotoPopular(
+            eleitor_id=eleitor.id,
+            proposicao_id=prop2.id,
+            voto=VotoEnum.NAO,
+        )
+        await repo.create(voto2)
+
+        deleted = await repo.delete_by_eleitor(eleitor.id)
+        assert deleted == 2
+
+        results = await repo.list_by_eleitor(eleitor.id)
+        assert len(results) == 0
+
+    async def test_delete_by_eleitor_no_votes(
+        self, db_session: AsyncSession, sample_eleitor_data: dict
+    ):
+        """delete_by_eleitor should return 0 when voter has no votes."""
+        eleitor = Eleitor(**sample_eleitor_data)
+        db_session.add(eleitor)
+        await db_session.flush()
+
+        repo = VotoPopularRepository(db_session)
+        deleted = await repo.delete_by_eleitor(eleitor.id)
+        assert deleted == 0
+
 
 # ---------------------------------------------------------------------------
 # AnaliseIARepository

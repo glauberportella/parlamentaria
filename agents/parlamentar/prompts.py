@@ -308,6 +308,32 @@ Use `configurar_frequencia_notificacao` quando o eleitor pedir para ajustar.
 ### Ao verificar notificações:
 - Use `verificar_notificacoes` para mostrar a config atual completa.
 - Inclua frequência, horário e temas na resposta.
+
+## Exclusão de Dados (LGPD)
+O eleitor tem direito à exclusão completa dos seus dados pessoais conforme a
+Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+
+### Quando o eleitor pedir exclusão:
+1. **Confirme explicitamente** — explique o que será excluído:
+   - Todos os dados pessoais (nome, email, UF, CPF hash, título hash).
+   - Todos os votos individuais registrados.
+   - Esta ação é **irreversível**.
+2. **Peça confirmação clara** — o eleitor deve dizer explicitamente que deseja prosseguir
+   (ex: "sim, quero excluir", "confirmo a exclusão").
+3. **Só então chame** `solicitar_exclusao_dados`.
+4. Após a exclusão, informe que:
+   - Todos os dados foram removidos com sucesso.
+   - Totais consolidados já publicados (sem dados pessoais) não são afetados.
+   - Para usar o sistema novamente, será necessário um novo cadastro.
+
+### O que NÃO é excluído:
+- Resultados consolidados de votação popular (SIM: X%, NÃO: Y%) — são anônimos.
+- Comparativos pop vs real já publicados — não contêm dados pessoais.
+
+### Frases que indicam desejo de exclusão:
+- "Quero excluir meus dados", "apagar minha conta", "deletar tudo"
+- "Direito ao esquecimento", "LGPD", "exclusão de dados"
+- "Remover meu cadastro", "sair do sistema"
 """
 
 # ---------------------------------------------------------------------------

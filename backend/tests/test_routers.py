@@ -115,3 +115,93 @@ class TestExceptionHandlers:
         """Non-existent route should return 404."""
         resp = await client.get("/nonexistent")
         assert resp.status_code == 404
+
+
+class TestMetaWebhookRouter:
+    """Test Meta data-deletion callback endpoint."""
+
+    async def test_meta_data_deletion_missing_params(self, client: AsyncClient):
+        """POST without signed_request should return 400."""
+        resp = await client.post(
+            "/webhook/meta/data-deletion",
+            data={},
+        )
+        assert resp.status_code == 400
+
+    @patch("app.routers.meta_webhook.settings")
+    async def test_meta_data_deletion_invalid_signature(self, mock_settings, client: AsyncClient):
+        """POST with invalid signed_request should return 403."""
+        mock_settings.meta_app_secret = "test-secret-123"
+        resp = await client.post(
+            "/webhook/meta/data-deletion",
+            data={"signed_request": "invalid.payload"},
+        )
+        assert resp.status_code == 403
+
+    @patch("app.routers.meta_webhook.settings")
+    async def test_meta_data_deletion_valid_request(self, mock_settings, client: AsyncClient):
+        """POST with valid signed_request should return 200 with confirmation."""
+        import base64
+        import hashlib
+        import hmac
+        import json
+
+        app_secret = "test-secret-for-meta"
+        mock_settings.meta_app_secret = app_secret
+
+        # Build a valid signed_request
+        payload = json.dumps({"user_id": "999999", "algorithm": "HMAC-SHA256"})
+        payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+        sig = hmac.new(
+            app_secret.encode(), payload_b64.encode(), hashlib.sha256
+        ).digest()
+        sig_b64 = base64.urlsafe_b64encode(sig).decode().rstrip("=")
+        signed_request = f"{sig_b64}.{payload_b64}"
+
+        resp = await client.post(
+            "/webhook/meta/data-deletion",
+            data={"signed_request": signed_request},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "confirmation_code" in data
+        assert "url" in data
+        assert "exclusao-de-dados" in data["url"]
+
+    @patch("app.routers.meta_webhook.settings")
+    async def test_meta_data_deletion_deletes_existing_user(
+        self, mock_settings, client: AsyncClient, db_session
+    ):
+        """Valid request should delete an existing voter with that chat_id."""
+        import base64
+        import hashlib
+        import hmac
+        import json
+        from app.domain.eleitor import Eleitor
+
+        app_secret = "test-secret-delete"
+        mock_settings.meta_app_secret = app_secret
+
+        # Create an eleitor with chat_id matching the Meta user_id
+        eleitor = Eleitor(
+            nome="Test User", email="test@meta.com", uf="SP",
+            chat_id="meta_user_42", channel="whatsapp",
+        )
+        db_session.add(eleitor)
+        await db_session.flush()
+
+        payload = json.dumps({"user_id": "meta_user_42", "algorithm": "HMAC-SHA256"})
+        payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+        sig = hmac.new(
+            app_secret.encode(), payload_b64.encode(), hashlib.sha256
+        ).digest()
+        sig_b64 = base64.urlsafe_b64encode(sig).decode().rstrip("=")
+        signed_request = f"{sig_b64}.{payload_b64}"
+
+        resp = await client.post(
+            "/webhook/meta/data-deletion",
+            data={"signed_request": signed_request},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "confirmation_code" in data

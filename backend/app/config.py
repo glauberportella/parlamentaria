@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     whatsapp_webhook_verify_token: str = ""
     whatsapp_api_base_url: str = "https://graph.facebook.com/v21.0"
 
+    # Meta / Facebook App (data-deletion callback)
+    meta_app_secret: str = ""
+
     # Admin API
     admin_api_key: str = "change-me-random-64-chars"
 
