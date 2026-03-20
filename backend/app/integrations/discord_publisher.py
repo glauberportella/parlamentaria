@@ -53,6 +53,8 @@ class DiscordPublisher(SocialPublisher):
 
     async def publish_with_image(self, text: str, image_path: str) -> PublishResult:
         """Publish a message with image attachment to Discord."""
+        import json as _json
+
         webhook_url = self._webhook_url_for()
         if not webhook_url:
             return PublishResult(success=False, error="Nenhum webhook Discord configurado.")
@@ -60,10 +62,11 @@ class DiscordPublisher(SocialPublisher):
         async with httpx.AsyncClient(timeout=30) as client:
             try:
                 with open(image_path, "rb") as f:
+                    payload = _json.dumps({"content": text, "username": "Parlamentaria Bot"})
                     resp = await client.post(
                         webhook_url,
                         data={
-                            "payload_json": '{"content": ' + f'"{text}"' + ', "username": "Parlamentaria Bot"}',
+                            "payload_json": payload,
                         },
                         files={"file": ("image.png", f, "image/png")},
                         params={"wait": "true"},

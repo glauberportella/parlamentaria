@@ -52,7 +52,7 @@ async def listar_posts_recentes(
     Returns:
         Dict com status e lista de posts recentes.
     """
-    from app.db.session import get_async_session
+    from app.tasks.helpers import get_async_session
     from app.repositories.social_post_repo import SocialPostRepository
     from app.domain.social_post import StatusPost
 
@@ -84,7 +84,7 @@ async def obter_metricas_posts() -> dict:
     Returns:
         Dict com métricas totais: posts, likes, shares, comments.
     """
-    from app.db.session import get_async_session
+    from app.tasks.helpers import get_async_session
     from app.repositories.social_post_repo import SocialPostRepository
 
     try:

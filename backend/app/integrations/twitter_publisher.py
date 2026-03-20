@@ -1,5 +1,8 @@
 """Twitter/X publisher using tweepy (API v2 + v1.1 media upload)."""
 
+import asyncio
+from functools import partial
+
 import tweepy
 
 from app.config import settings
@@ -29,11 +32,24 @@ class TwitterPublisher(SocialPublisher):
         )
         self._api_v1 = tweepy.API(auth)
 
+    def _create_tweet(self, text: str, media_ids: list[int] | None = None) -> dict:
+        """Synchronous tweet creation."""
+        kwargs: dict = {"text": text}
+        if media_ids:
+            kwargs["media_ids"] = media_ids
+        response = self._client.create_tweet(**kwargs)
+        return {"id": str(response.data["id"])}
+
+    def _upload_media(self, image_path: str) -> int:
+        """Synchronous media upload via v1.1 API."""
+        media = self._api_v1.media_upload(filename=image_path)
+        return media.media_id
+
     async def publish_text(self, text: str) -> PublishResult:
         """Publish a text-only tweet."""
         try:
-            response = self._client.create_tweet(text=text)
-            tweet_id = str(response.data["id"])
+            data = await asyncio.to_thread(self._create_tweet, text)
+            tweet_id = data["id"]
             return PublishResult(
                 success=True,
                 post_id=tweet_id,
@@ -46,11 +62,9 @@ class TwitterPublisher(SocialPublisher):
     async def publish_with_image(self, text: str, image_path: str) -> PublishResult:
         """Publish a tweet with image."""
         try:
-            media = self._api_v1.media_upload(filename=image_path)
-            response = self._client.create_tweet(
-                text=text, media_ids=[media.media_id]
-            )
-            tweet_id = str(response.data["id"])
+            media_id = await asyncio.to_thread(self._upload_media, image_path)
+            data = await asyncio.to_thread(self._create_tweet, text, [media_id])
+            tweet_id = data["id"]
             return PublishResult(
                 success=True,
                 post_id=tweet_id,
@@ -63,7 +77,7 @@ class TwitterPublisher(SocialPublisher):
     async def delete_post(self, post_id: str) -> bool:
         """Delete a tweet."""
         try:
-            self._client.delete_tweet(id=post_id)
+            await asyncio.to_thread(self._client.delete_tweet, id=post_id)
             return True
         except tweepy.TweepyException as e:
             logger.error("twitter.delete.error", post_id=post_id, error=str(e))
@@ -72,9 +86,12 @@ class TwitterPublisher(SocialPublisher):
     async def get_metrics(self, post_id: str) -> PostMetrics:
         """Fetch tweet metrics."""
         try:
-            response = self._client.get_tweet(
-                id=post_id,
-                tweet_fields=["public_metrics"],
+            response = await asyncio.to_thread(
+                partial(
+                    self._client.get_tweet,
+                    id=post_id,
+                    tweet_fields=["public_metrics"],
+                )
             )
             if response.data and response.data.public_metrics:
                 m = response.data.public_metrics
