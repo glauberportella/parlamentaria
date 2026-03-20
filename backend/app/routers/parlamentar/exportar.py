@@ -23,11 +23,16 @@ from app.schemas.parlamentar import ParlamentarUserResponse
 
 # Premium plan gate — only enforced when parlamentaria-premium is installed
 try:
-    from premium.billing.gabinete_gate import require_gabinete_plan
+    from premium.billing.gabinete_gate import require_gabinete_plan, PLAN_HIERARCHY
 
-    _require_pro = require_gabinete_plan("gabinete_pro", "gabinete_enterprise")
+    _has_premium = True
 except ImportError:
-    _require_pro = get_current_parlamentar_user
+    PLAN_HIERARCHY = {}
+    _has_premium = False
+
+# Row limits per plan tier (Free=100, Pro/Enterprise=50000)
+_FREE_EXPORT_LIMIT = 100
+_PRO_EXPORT_LIMIT = 50_000
 
 logger = get_logger(__name__)
 
@@ -42,6 +47,15 @@ def _csv_response(buffer: io.StringIO, filename: str) -> StreamingResponse:
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _export_row_limit(user: ParlamentarUserResponse) -> int:
+    """Return export row limit based on user plan tier."""
+    if not _has_premium:
+        return _PRO_EXPORT_LIMIT  # no premium installed → no limit
+    user_plan = getattr(user, "plano", "gabinete_free") or "gabinete_free"
+    level = PLAN_HIERARCHY.get(user_plan, 0)
+    return _PRO_EXPORT_LIMIT if level >= 1 else _FREE_EXPORT_LIMIT
 
 
 def _parse_temas(temas_raw) -> list[str]:
@@ -65,14 +79,16 @@ def _parse_temas(temas_raw) -> list[str]:
 async def exportar_votos(
     proposicao_id: int | None = Query(None, description="Filtrar por proposição"),
     db: AsyncSession = Depends(get_db),
-    _current_user: ParlamentarUserResponse = Depends(_require_pro),
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
 ) -> StreamingResponse:
     """Export votos populares as CSV.
 
+    Free plan: limited to 100 rows. Pro+: up to 50,000 rows.
     Columns: proposicao_tipo, proposicao_numero, proposicao_ano, ementa, voto,
     tipo_voto, uf_eleitor, data_voto.
     Electors are anonymised (only UF is exported).
     """
+    row_limit = _export_row_limit(current_user)
     stmt = (
         select(
             Proposicao.tipo,
@@ -91,14 +107,14 @@ async def exportar_votos(
     if proposicao_id:
         stmt = stmt.where(VotoPopular.proposicao_id == proposicao_id)
 
-    stmt = stmt.order_by(VotoPopular.data_voto.desc()).limit(50_000)
+    stmt = stmt.order_by(VotoPopular.data_voto.desc()).limit(row_limit)
 
     result = await db.execute(stmt)
     rows = result.all()
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow([
+    header = [
         "tipo",
         "numero",
         "ano",
@@ -107,7 +123,10 @@ async def exportar_votos(
         "tipo_voto",
         "uf_eleitor",
         "data_voto",
-    ])
+    ]
+    if row_limit <= _FREE_EXPORT_LIMIT:
+        header.append("limite_plano_gratuito")
+    writer.writerow(header)
     for row in rows:
         data_str = row.data_voto.isoformat() if row.data_voto else ""
         writer.writerow([
@@ -130,14 +149,16 @@ async def exportar_votos(
 async def exportar_comparativos(
     resultado: str | None = Query(None, description="APROVADO ou REJEITADO"),
     db: AsyncSession = Depends(get_db),
-    _current_user: ParlamentarUserResponse = Depends(_require_pro),
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
 ) -> StreamingResponse:
     """Export comparativos as CSV.
 
+    Free plan: limited to 100 rows. Pro+: up to 10,000 rows.
     Columns: proposicao, ementa, temas, resultado_camara,
     voto_pop_sim, voto_pop_nao, voto_pop_abstencao,
     votos_camara_sim, votos_camara_nao, alinhamento, data.
     """
+    row_limit = min(_export_row_limit(current_user), 10_000)
     stmt = (
         select(
             ComparativoVotacao,
@@ -153,7 +174,7 @@ async def exportar_comparativos(
     if resultado:
         stmt = stmt.where(ComparativoVotacao.resultado_camara == resultado.upper())
 
-    stmt = stmt.order_by(ComparativoVotacao.data_geracao.desc()).limit(10_000)
+    stmt = stmt.order_by(ComparativoVotacao.data_geracao.desc()).limit(row_limit)
 
     result = await db.execute(stmt)
     rows = result.all()
