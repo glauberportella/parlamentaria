@@ -3,7 +3,7 @@
 import uuid
 from typing import Sequence
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
@@ -124,3 +124,22 @@ class VotoPopularRepository(BaseRepository[VotoPopular]):
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def delete_by_eleitor(self, eleitor_id: uuid.UUID) -> int:
+        """Delete all votes cast by a specific voter.
+
+        Used for LGPD data deletion requests.
+
+        Args:
+            eleitor_id: Voter UUID.
+
+        Returns:
+            Number of votes deleted.
+        """
+        stmt = (
+            delete(VotoPopular)
+            .where(VotoPopular.eleitor_id == eleitor_id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return result.rowcount

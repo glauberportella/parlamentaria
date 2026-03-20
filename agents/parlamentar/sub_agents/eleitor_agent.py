@@ -13,6 +13,7 @@ from agents.parlamentar.tools.db_tools import (
     recuperar_conta,
     atualizar_temas_interesse,
     verificar_titulo_eleitor,
+    solicitar_exclusao_dados,
 )
 from agents.parlamentar.tools.notification_tools import (
     verificar_notificacoes,
@@ -27,8 +28,9 @@ eleitor_agent = LlmAgent(
         "temas de interesse para notificações proativas. "
         "Também verifica título de eleitor para aumentar nível de confiança. "
         "Configura frequência de notificações (imediata, diária, semanal, desativada). "
+        "Processa solicitações de exclusão de dados pessoais (LGPD). "
         "Use quando o eleitor quiser se cadastrar, atualizar perfil, "
-        "configurar notificações ou verificar título de eleitor."
+        "configurar notificações, verificar título de eleitor ou excluir seus dados."
     ),
     model=settings.agent_model,
     instruction=ELEITOR_AGENT_INSTRUCTION,
@@ -40,5 +42,6 @@ eleitor_agent = LlmAgent(
         verificar_notificacoes,
         verificar_titulo_eleitor,
         configurar_frequencia_notificacao,
+        solicitar_exclusao_dados,
     ],
 )

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block tag %}Proposição em Destaque{% endblock %}
+
+{% block head %}
+<style>
+  .proposicao { font-size: 28px; font-weight: 800; margin-bottom: 20px; line-height: 1.3; }
+  .ementa {
+    font-size: 16px;
+    color: #cbd5e1;
+    line-height: 1.6;
+    margin-bottom: 28px;
+    border-left: 3px solid #60a5fa;
+    padding-left: 16px;
+  }
+  .areas { margin-bottom: 28px; }
+  .area-badge {
+    display: inline-block;
+    background: rgba(167,139,250,0.15);
+    color: #a78bfa;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-right: 8px;
+    margin-bottom: 6px;
+  }
+  .vote-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .vote-box {
+    text-align: center;
+    padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+  }
+  .vote-box-value { font-size: 40px; font-weight: 800; }
+  .vote-box-label { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+  .vote-sim .vote-box-value { color: #4ade80; }
+  .vote-nao .vote-box-value { color: #f87171; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="proposicao">⭐ {{ proposicao }}</div>
+<div class="ementa">{{ ementa }}</div>
+{% if areas %}
+<div class="areas">
+  {% for area in areas %}
+  <span class="area-badge">{{ area }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+<div class="vote-summary">
+  <div class="vote-box vote-sim">
+    <div class="vote-box-value">{{ '%.0f' | format(sim) }}%</div>
+    <div class="vote-box-label">👍 A FAVOR</div>
+  </div>
+  <div class="vote-box vote-nao">
+    <div class="vote-box-value">{{ '%.0f' | format(nao) }}%</div>
+    <div class="vote-box-label">👎 CONTRA</div>
+  </div>
+</div>
+{% endblock %}

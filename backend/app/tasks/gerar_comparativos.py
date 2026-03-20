@@ -135,6 +135,18 @@ def gerar_comparativos_task() -> dict:
                             error=str(e),
                         )
 
+                    # Dispatch social media post for the comparativo
+                    try:
+                        from app.tasks.social_media_tasks import post_comparativo_task
+
+                        post_comparativo_task.delay(str(comparativo.id))
+                    except Exception as e:
+                        logger.warning(
+                            "task.gerar_comparativo.social_dispatch_error",
+                            votacao_id=votacao.id,
+                            error=str(e),
+                        )
+
                 except Exception as e:
                     logger.error(
                         "task.gerar_comparativo.error",

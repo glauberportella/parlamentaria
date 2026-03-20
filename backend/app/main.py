@@ -14,7 +14,7 @@ from app.config import settings
 from app.exceptions import AppException
 from app.logging import setup_logging, get_logger
 from app.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, limiter
-from app.routers import health, webhooks, admin, rss, assinaturas, cidadao
+from app.routers import health, webhooks, admin, rss, assinaturas, cidadao, social_admin, meta_webhook
 from app.routers.parlamentar import router as parlamentar_router
 
 logger = get_logger(__name__)
@@ -120,4 +120,6 @@ app.include_router(admin.router)
 app.include_router(rss.router)
 app.include_router(assinaturas.router)
 app.include_router(cidadao.router)
+app.include_router(social_admin.router)
+app.include_router(meta_webhook.router)
 app.include_router(parlamentar_router)

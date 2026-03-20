@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block tag %}Resumo Semanal{% endblock %}
+
+{% block head %}
+<style>
+  .periodo { font-size: 14px; color: #94a3b8; margin-bottom: 8px; }
+  .title { font-size: 28px; font-weight: 800; margin-bottom: 32px; }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  .kpi {
+    text-align: center;
+    padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+  }
+  .kpi-value { font-size: 36px; font-weight: 800; color: #60a5fa; }
+  .kpi-label { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+  .top-title { font-size: 16px; font-weight: 700; color: #94a3b8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .top-list { list-style: none; }
+  .top-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .top-item:last-child { border-bottom: none; }
+  .top-rank { font-weight: 800; color: #fbbf24; margin-right: 12px; font-size: 14px; }
+  .top-name { font-size: 14px; flex: 1; }
+  .top-votes { font-size: 14px; color: #60a5fa; font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="periodo">{{ periodo }}</div>
+<div class="title">📊 Resumo da Semana</div>
+<div class="kpis">
+  <div class="kpi">
+    <div class="kpi-value">{{ total_proposicoes }}</div>
+    <div class="kpi-label">Proposições ativas</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">{{ total_votos }}</div>
+    <div class="kpi-label">Votos populares</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">{{ total_eleitores }}</div>
+    <div class="kpi-label">Eleitores</div>
+  </div>
+</div>
+{% if top %}
+<div class="top-title">🔥 Mais votadas</div>
+<ul class="top-list">
+  {% for item in top %}
+  <li class="top-item">
+    <span class="top-rank">#{{ loop.index }}</span>
+    <span class="top-name">{{ item.nome }}</span>
+    <span class="top-votes">{{ item.votos }} votos</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
