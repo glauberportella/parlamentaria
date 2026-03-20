@@ -19,6 +19,14 @@ from app.logging import get_logger
 from app.routers.parlamentar.auth import get_current_parlamentar_user
 from app.schemas.parlamentar import ParlamentarUserResponse
 
+# Premium plan gate — only enforced when parlamentaria-premium is installed
+try:
+    from premium.billing.gabinete_gate import require_gabinete_plan
+
+    _require_pro = require_gabinete_plan("gabinete_pro", "gabinete_enterprise")
+except ImportError:
+    _require_pro = get_current_parlamentar_user
+
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/votos", tags=["parlamentar-votos"])
@@ -141,7 +149,7 @@ async def votos_por_tema(
 @router.get("/por-uf", response_model=list[VotosPorUFItem])
 async def votos_por_uf(
     db: AsyncSession = Depends(get_db),
-    _current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+    _current_user: ParlamentarUserResponse = Depends(_require_pro),
 ) -> list[VotosPorUFItem]:
     """Aggregate popular votes grouped by eleitor UF (state).
 

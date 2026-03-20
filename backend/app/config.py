@@ -145,6 +145,34 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     email_from: str = "Parlamentaria <noreply@parlamentaria.app>"
 
+    # --- Billing / Stripe (consumed by premium plugin) ---
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+
+    # Stripe Price IDs
+    stripe_price_cidadao_premium_mensal: str = ""
+    stripe_price_cidadao_premium_anual: str = ""
+    stripe_price_gabinete_pro_mensal: str = ""
+    stripe_price_gabinete_enterprise_mensal: str = ""
+    stripe_price_api_developer_mensal: str = ""
+    stripe_price_api_business_mensal: str = ""
+    stripe_price_api_enterprise_mensal: str = ""
+    stripe_price_api_payperuse_query: str = ""
+
+    # Billing URLs (Stripe checkout redirects)
+    billing_success_url_cidadao: str = "https://t.me/ParlamentariaBot?start=billing_success"
+    billing_cancel_url_cidadao: str = "https://t.me/ParlamentariaBot?start=billing_cancel"
+    billing_success_url_gabinete: str = "http://localhost:3000/configuracoes/assinatura?status=success"
+    billing_cancel_url_gabinete: str = "http://localhost:3000/planos?status=cancel"
+    billing_success_url_api: str = "http://localhost:3001/api/sucesso"
+    billing_cancel_url_api: str = "http://localhost:3001/api/cadastro?status=cancel"
+
+    # API SaaS rate limits
+    api_saas_rate_limit_developer: int = 10  # req/min
+    api_saas_rate_limit_business: int = 60
+    api_saas_rate_limit_enterprise: int = 300
+
     @property
     def is_production(self) -> bool:
         """Check if running in production."""

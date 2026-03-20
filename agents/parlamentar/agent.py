@@ -20,6 +20,7 @@ from agents.parlamentar.sub_agents.deputado_agent import deputado_agent
 from agents.parlamentar.sub_agents.eleitor_agent import eleitor_agent
 from agents.parlamentar.sub_agents.publicacao_agent import publicacao_agent
 from agents.parlamentar.tools.camara_tools import buscar_eventos_pauta, consultar_agenda_votacoes
+from agents.parlamentar.extensions import get_premium_sub_agents
 
 root_agent = LlmAgent(
     name="ParlamentarAgent",
@@ -32,6 +33,7 @@ root_agent = LlmAgent(
         deputado_agent,
         eleitor_agent,
         publicacao_agent,
+        *get_premium_sub_agents(),
     ],
     # Root agent also has direct tools for agenda/events
     tools=[buscar_eventos_pauta, consultar_agenda_votacoes],

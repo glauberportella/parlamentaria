@@ -28,6 +28,7 @@ COMMANDS = {
     "/meusvotos": "Ver histórico de seus votos populares",
     "/notificacoes": "Configurar frequência de notificações",
     "/deputados": "Buscar informações sobre deputados",
+    "/premium": "Ver planos e assinar o Premium",
     "/menu": "Mostrar menu principal",
     "/reset": "Reiniciar conversa do zero",
 }
@@ -50,6 +51,8 @@ async def handle_command(message: IncomingMessage) -> dict:
         return _handle_start(message)
     elif command == "/ajuda":
         return _handle_ajuda()
+    elif command == "/premium":
+        return await _handle_premium(message)
     elif command == "/menu":
         return _handle_menu()
     elif command == "/reset":
@@ -138,6 +141,9 @@ async def handle_callback(message: IncomingMessage) -> dict:
     elif action in ("confirm", "cancel"):
         return _handle_confirmation_callback(action, params)
 
+    elif action == "premium" and len(params) >= 2 and params[0] == "checkout":
+        return await _handle_premium_checkout(message.chat_id, params[1])
+
     else:
         logger.warning("telegram.callback.unknown", action=action, params=params)
         return {
@@ -193,6 +199,61 @@ def _handle_menu() -> dict:
     }
 
 
+async def _handle_premium(message: IncomingMessage) -> dict:
+    """Handle /premium command — show plan info and upgrade options."""
+    from channels.telegram.keyboards import premium_keyboard
+
+    chat_id = message.chat_id
+    plano = "GRATUITO"
+    checkout_url = None
+
+    try:
+        from app.db.session import async_session_factory
+        from sqlalchemy import select
+        from app.domain.eleitor import Eleitor
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Eleitor.plano).where(Eleitor.chat_id == str(chat_id))
+            )
+            plano = result.scalar_one_or_none() or "GRATUITO"
+    except Exception:
+        pass
+
+    if plano.upper() != "GRATUITO":
+        text = (
+            "⭐ <b>Parlamentaria Premium</b>\n\n"
+            f"Você já é assinante do plano <b>{plano}</b>! 🎉\n\n"
+            "Benefícios ativos:\n"
+            "• ♾️ Perguntas ilimitadas\n"
+            "• 🔍 Análise personalizada de proposições\n"
+            "• 📊 Comparativo por região/UF\n"
+            "• 📈 Relatório de alinhamento\n"
+            "• 🔔 Alertas prioritários\n"
+            "• 📚 Histórico completo\n\n"
+            "Para gerenciar sua assinatura, me peça \"gerenciar assinatura\"."
+        )
+        return {"text": text, "buttons": None, "handled": True}
+
+    text = (
+        "⭐ <b>Parlamentaria Premium</b>\n\n"
+        "Transforme sua participação democrática!\n\n"
+        "<b>Plano Gratuito</b> (atual):\n"
+        "• 5 perguntas por dia\n"
+        "• Informações básicas\n\n"
+        "<b>Plano Premium</b> — R$ 14,90/mês:\n"
+        "• ♾️ Perguntas ilimitadas\n"
+        "• 🔍 Análise personalizada de proposições\n"
+        "• 📊 Comparativo de votos por região/UF\n"
+        "• 📈 Relatório de alinhamento deputado vs popular\n"
+        "• 🔔 Alertas prioritários\n"
+        "• 📚 Histórico completo de votações\n\n"
+        "💰 Ou economize com o <b>plano anual</b>: R$ 99,00/ano (45% off!)\n\n"
+        "Escolha abaixo para assinar:"
+    )
+    return {"text": text, "buttons": premium_keyboard(), "handled": True}
+
+
 def _handle_reset(message: IncomingMessage) -> dict:
     """Handle /reset command — will be processed by the webhook handler."""
     return {
@@ -241,6 +302,7 @@ def _handle_menu_callback(option: str) -> dict:
         "meusvotos": "Mostre meu histórico de votos populares",
         "notificacoes": "Quais são minhas configurações de notificação? Mostre as opções disponíveis.",
         "perfil": "Mostre meu perfil de eleitor",
+        "premium": None,  # handled as command
         "ajuda": None,  # handled directly
     }
 
@@ -250,6 +312,14 @@ def _handle_menu_callback(option: str) -> dict:
             "buttons": None,
             "callback_answer": None,
             "to_agent": None,
+        }
+
+    if option == "premium":
+        return {
+            "text": None,
+            "buttons": None,
+            "callback_answer": "Carregando Premium...",
+            "to_agent": "/premium",
         }
 
     query = menu_queries.get(option, f"Menu: {option}")
@@ -290,3 +360,50 @@ def _handle_confirmation_callback(action: str, params: list[str]) -> dict:
         "callback_answer": "Cancelado",
         "to_agent": None,
     }
+
+
+async def _handle_premium_checkout(chat_id: str, periodo: str) -> dict:
+    """Handle premium checkout button press — generate Stripe checkout URL."""
+    plano_slug = "cidadao_premium_anual" if periodo == "anual" else "cidadao_premium_mensal"
+
+    try:
+        from premium.agents.premium_tools import criar_checkout_session
+        result = await criar_checkout_session(chat_id)
+
+        if result.get("status") == "success" and result.get("checkout_url"):
+            return {
+                "text": (
+                    "🔗 <b>Link de pagamento gerado!</b>\n\n"
+                    f"Clique no link abaixo para assinar:\n{result['checkout_url']}\n\n"
+                    "O link é seguro e processado pelo Stripe. "
+                    "Após o pagamento, seu plano será ativado automaticamente! ✅"
+                ),
+                "buttons": None,
+                "callback_answer": "Gerando link de pagamento...",
+                "to_agent": None,
+            }
+        else:
+            return {
+                "text": None,
+                "buttons": None,
+                "callback_answer": "Erro ao gerar pagamento",
+                "to_agent": f"Quero assinar o plano premium {periodo}",
+            }
+    except ImportError:
+        return {
+            "text": (
+                "⚠️ O módulo de assinaturas não está disponível no momento.\n"
+                "Tente novamente mais tarde."
+            ),
+            "buttons": None,
+            "callback_answer": "Indisponível",
+            "to_agent": None,
+        }
+    except Exception:
+        logger.exception("premium_checkout.error")
+        return {
+            "text": None,
+            "buttons": None,
+            "callback_answer": "Erro",
+            "to_agent": f"Quero assinar o plano premium {periodo}",
+        }

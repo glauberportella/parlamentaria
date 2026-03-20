@@ -50,6 +50,7 @@ class ParlamentarUserResponse(BaseModel):
     nome: str
     cargo: str | None = None
     tipo: str
+    plano: str = "gabinete_free"
     ativo: bool
     is_admin: bool = False
     temas_acompanhados: list[str] | None = None

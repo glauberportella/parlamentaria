@@ -166,6 +166,17 @@ async def telegram_webhook(
             # Regular free-text message
             agent_text = message.text
 
+        # Check rate limit for free-tier users before calling the agent
+        rate_result = await _check_rate_limit(message.chat_id)
+        if not rate_result["allowed"]:
+            rate_msg = _format_rate_limit_msg(rate_result)
+            premium_buttons = _get_premium_upgrade_buttons()
+            if premium_buttons:
+                await adapter.send_rich_message(message.chat_id, rate_msg, premium_buttons)
+            else:
+                await adapter.send_message(message.chat_id, rate_msg)
+            return {"status": "rate_limited"}
+
         # Route to ADK agent
         await adapter.send_chat_action(message.chat_id)
         agent_response = await _run_agent(message.chat_id, message.user_id, agent_text)
@@ -175,6 +186,9 @@ async def telegram_webhook(
             await adapter.send_rich_message(message.chat_id, enhanced_text, buttons)
         else:
             await adapter.send_message(message.chat_id, enhanced_text)
+
+        # Increment counter after successful agent response
+        await _increment_rate_counter(message.chat_id)
 
     except Exception as e:
         logger.error(
@@ -212,3 +226,73 @@ async def _run_agent(chat_id: str, user_id: str, text: str) -> str:
         session_id=chat_id,
         message=text,
     )
+
+
+async def _check_rate_limit(chat_id: str) -> dict:
+    """Check rate limit via premium plugin (fail-open if not installed)."""
+    try:
+        from premium.billing.rate_limiter import check_chat_rate_limit
+
+        # Get eleitor plan from DB
+        plano = await _get_eleitor_plano(chat_id)
+        return await check_chat_rate_limit(chat_id, plano)
+    except ImportError:
+        return {"allowed": True, "remaining": None, "limit": None, "reset_at": None}
+    except Exception:
+        logger.debug("rate_limit.check_failed", exc_info=True)
+        return {"allowed": True, "remaining": None, "limit": None, "reset_at": None}
+
+
+async def _increment_rate_counter(chat_id: str) -> None:
+    """Increment rate limit counter via premium plugin."""
+    try:
+        from premium.billing.rate_limiter import increment_chat_counter
+
+        plano = await _get_eleitor_plano(chat_id)
+        await increment_chat_counter(chat_id, plano)
+    except ImportError:
+        pass
+    except Exception:
+        logger.debug("rate_limit.increment_failed", exc_info=True)
+
+
+async def _get_eleitor_plano(chat_id: str) -> str:
+    """Get the eleitor's plan from DB. Returns 'GRATUITO' if not found."""
+    try:
+        from app.db.session import async_session_factory
+        from sqlalchemy import select
+        from app.domain.eleitor import Eleitor
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Eleitor.plano).where(Eleitor.chat_id == str(chat_id))
+            )
+            plano = result.scalar_one_or_none()
+            return plano or "GRATUITO"
+    except Exception:
+        return "GRATUITO"
+
+
+def _format_rate_limit_msg(rate_result: dict) -> str:
+    """Format rate limit message for the user."""
+    try:
+        from premium.billing.rate_limiter import format_rate_limit_message
+        return format_rate_limit_message(
+            rate_result.get("remaining"), rate_result.get("limit"), rate_result.get("reset_at")
+        )
+    except ImportError:
+        return "⚠️ Limite diário atingido. Tente novamente amanhã."
+
+
+def _get_premium_upgrade_buttons() -> list | None:
+    """Get upgrade buttons if premium is available."""
+    try:
+        from channels.base import Button
+        return [
+            [
+                Button(text="⭐ Conhecer Premium", callback_data="menu:premium"),
+                Button(text="📋 Menu", callback_data="menu:main"),
+            ]
+        ]
+    except Exception:
+        return None

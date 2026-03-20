@@ -21,6 +21,14 @@ from app.logging import get_logger
 from app.routers.parlamentar.auth import get_current_parlamentar_user
 from app.schemas.parlamentar import ParlamentarUserResponse
 
+# Premium plan gate — only enforced when parlamentaria-premium is installed
+try:
+    from premium.billing.gabinete_gate import require_gabinete_plan
+
+    _require_pro = require_gabinete_plan("gabinete_pro", "gabinete_enterprise")
+except ImportError:
+    _require_pro = get_current_parlamentar_user
+
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/exportar", tags=["parlamentar-export"])
@@ -57,7 +65,7 @@ def _parse_temas(temas_raw) -> list[str]:
 async def exportar_votos(
     proposicao_id: int | None = Query(None, description="Filtrar por proposição"),
     db: AsyncSession = Depends(get_db),
-    _current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+    _current_user: ParlamentarUserResponse = Depends(_require_pro),
 ) -> StreamingResponse:
     """Export votos populares as CSV.
 
@@ -122,7 +130,7 @@ async def exportar_votos(
 async def exportar_comparativos(
     resultado: str | None = Query(None, description="APROVADO ou REJEITADO"),
     db: AsyncSession = Depends(get_db),
-    _current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+    _current_user: ParlamentarUserResponse = Depends(_require_pro),
 ) -> StreamingResponse:
     """Export comparativos as CSV.
 

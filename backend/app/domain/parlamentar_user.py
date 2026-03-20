@@ -90,6 +90,25 @@ class ParlamentarUser(Base):
         nullable=True,
         doc="Hash do refresh token ativo (para revogação)",
     )
+
+    # --- Billing fields (populated by premium plugin when installed) ---
+    plano: Mapped[str] = mapped_column(
+        String(20), default="FREE", server_default="FREE",
+        doc="Plano de assinatura: FREE, PRO ou ENTERPRISE",
+    )
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String(100), unique=True, nullable=True,
+        doc="Stripe customer ID (cus_xxx)",
+    )
+    billing_assinatura_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True,
+        doc="FK para billing_assinaturas (premium)",
+    )
+    max_usuarios: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1",
+        doc="Máximo de usuários permitidos no gabinete pelo plano",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
