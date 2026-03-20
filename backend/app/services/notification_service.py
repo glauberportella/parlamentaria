@@ -226,12 +226,15 @@ class NotificationService:
                 stats["skipped"] += 1
                 continue
 
-            # Only send immediate alerts to voters who opted in (IMEDIATA).
+            # Premium voters with alertas_prioritarios get immediate alerts
+            # regardless of frequency setting.
+            is_premium_alert = _has_alertas_prioritarios(voter)
+
+            # Only send immediate alerts to voters who opted in (IMEDIATA)
+            # OR who have premium alertas_prioritarios feature.
             # Voters on DIARIA/SEMANAL will get these in their digest instead.
-            if voter.frequencia_notificacao not in (
+            if not is_premium_alert and voter.frequencia_notificacao not in (
                 FrequenciaNotificacao.IMEDIATA,
-                # Also send to NAO_VERIFICADO voters who haven't set preference
-                # (their default is SEMANAL, but they might not know about digests yet)
             ):
                 stats["skipped"] += 1
                 continue
@@ -351,3 +354,23 @@ class NotificationService:
             **stats,
         )
         return stats
+
+
+def _has_alertas_prioritarios(voter: Eleitor) -> bool:
+    """Check if voter's plan includes alertas_prioritarios feature.
+
+    Uses premium plan_config when available (ImportError-safe).
+    """
+    try:
+        from premium.billing.plan_config import CIDADAO_PLANS
+        from premium.domain.billing import PlanoEleitor
+
+        plano_str = getattr(voter, "plano", "GRATUITO")
+        try:
+            plano_enum = PlanoEleitor(plano_str)
+        except ValueError:
+            return False
+        config = CIDADAO_PLANS.get(plano_enum)
+        return config is not None and config.features.alertas_prioritarios
+    except ImportError:
+        return False
