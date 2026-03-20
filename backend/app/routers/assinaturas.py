@@ -142,3 +142,39 @@ async def test_webhook(
     status = "delivered" if success else "failed"
     logger.info("assinatura.webhook.test", subscription_id=str(subscription_id), status=status)
     return {"status": status}
+
+
+# ------------------------------------------------------------------
+# Admin: List all webhooks + reactivate
+# ------------------------------------------------------------------
+
+
+@router.get("/webhooks", response_model=list[AssinaturaWebhookResponse], dependencies=[Depends(verify_api_key)])
+async def list_webhooks(
+    db: AsyncSession = Depends(get_db),
+) -> list[AssinaturaWebhookResponse]:
+    """List all webhook subscriptions (admin)."""
+    from sqlalchemy import select
+    from app.domain.assinatura import AssinaturaWebhook
+
+    result = await db.execute(
+        select(AssinaturaWebhook).order_by(AssinaturaWebhook.data_criacao.desc())
+    )
+    webhooks = result.scalars().all()
+    return [AssinaturaWebhookResponse.model_validate(wh) for wh in webhooks]
+
+
+@router.post("/webhooks/{subscription_id}/reactivate", dependencies=[Depends(verify_api_key)])
+async def reactivate_webhook(
+    subscription_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> AssinaturaWebhookResponse:
+    """Reactivate a webhook subscription and reset failure counter."""
+    service = PublicacaoService(db)
+    webhook = await service.get_webhook_by_id(subscription_id)
+    webhook.ativo = True
+    webhook.falhas_consecutivas = 0
+    await db.flush()
+    await db.refresh(webhook)
+    logger.info("assinatura.webhook.reactivated", id=str(subscription_id))
+    return AssinaturaWebhookResponse.model_validate(webhook)

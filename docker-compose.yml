@@ -16,6 +16,7 @@ services:
       - ./channels:/app/channels
       - ./backend/app:/app/app
       - ./backend/scripts:/app/scripts
+      - ${PREMIUM_PATH:-./premium}:/app/premium
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
 
@@ -75,6 +76,7 @@ services:
       - ./agents:/app/agents
       - ./channels:/app/channels
       - ./backend/app:/app/app
+      - ${PREMIUM_PATH:-./premium}:/app/premium
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.tasks inspect ping --timeout 10 2>/dev/null | grep -q OK || exit 1"]
       interval: 30s
@@ -96,6 +98,7 @@ services:
       - ./agents:/app/agents
       - ./channels:/app/channels
       - ./backend/app:/app/app
+      - ${PREMIUM_PATH:-./premium}:/app/premium
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.tasks inspect ping --timeout 10 2>/dev/null | grep -q OK || exit 1"]
       interval: 30s
