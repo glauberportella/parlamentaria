@@ -22,6 +22,7 @@ celery_app = Celery(
         "app.tasks.generate_analysis",
         "app.tasks.send_digests",
         "app.tasks.social_media_tasks",
+        "app.tasks.export_tasks",
     ],
 )
 
@@ -169,6 +170,12 @@ celery_app.conf.beat_schedule = {
     "social-atualizar-metricas": {
         "task": "app.tasks.social_media_tasks.atualizar_metricas_task",
         "schedule": crontab(hour="0,6,12,18", minute=15),
+        "args": (),
+    },
+    # === Export cleanup — remove expired export files daily at 04:00 ===
+    "cleanup-expired-exports": {
+        "task": "app.tasks.export_tasks.cleanup_expired_exports_task",
+        "schedule": crontab(hour=4, minute=0),
         "args": (),
     },
 }

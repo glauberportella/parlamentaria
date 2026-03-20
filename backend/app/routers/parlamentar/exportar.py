@@ -1,19 +1,25 @@
 """Export endpoints for the parlamentar dashboard.
 
 Provides CSV export for votos and comparativos data.
+Sync endpoints for quick small exports + async job system for large exports.
 """
 
 import csv
 import io
 from datetime import datetime, timezone
+from pathlib import Path
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.dependencies import get_db
 from app.domain.comparativo import ComparativoVotacao
+from app.domain.export_job import ExportJob, ExportJobStatus, ExportJobType
 from app.domain.proposicao import Proposicao
 from app.domain.voto_popular import VotoPopular
 from app.domain.eleitor import Eleitor
@@ -215,3 +221,191 @@ async def exportar_comparativos(
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d")
     return _csv_response(buf, f"comparativos_{ts}.csv")
+
+
+# ──────────────────────────────────────────────────────────
+#  Async export job system — Pydantic schemas
+# ──────────────────────────────────────────────────────────
+
+
+class CreateExportJobRequest(BaseModel):
+    """Request to create an async export job."""
+
+    tipo: str  # "VOTOS" or "COMPARATIVOS"
+    filtros: dict | None = None
+
+
+class ExportJobResponse(BaseModel):
+    """Response for a single export job."""
+
+    id: str
+    tipo: str
+    status: str
+    filtros: dict | None = None
+    total_rows: int | None = None
+    file_name: str | None = None
+    file_size_bytes: int | None = None
+    error_message: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    expires_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_job(cls, job: ExportJob) -> "ExportJobResponse":
+        return cls(
+            id=str(job.id),
+            tipo=job.tipo.value if job.tipo else "",
+            status=job.status.value if job.status else "",
+            filtros=job.filtros,
+            total_rows=job.total_rows,
+            file_name=job.file_name,
+            file_size_bytes=job.file_size_bytes,
+            error_message=job.error_message,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+            expires_at=job.expires_at,
+        )
+
+
+class ExportJobListResponse(BaseModel):
+    """Paginated list of export jobs."""
+
+    jobs: list[ExportJobResponse]
+    total: int
+
+
+# ──────────────────────────────────────────────────────────
+#  Async export job endpoints
+# ──────────────────────────────────────────────────────────
+
+
+@router.post("/jobs", response_model=ExportJobResponse, status_code=201)
+async def create_export_job(
+    body: CreateExportJobRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+) -> ExportJobResponse:
+    """Create an async export job. Returns immediately.
+
+    The export is processed in background by Celery.
+    When complete, the file can be downloaded and an email notification is sent.
+    """
+    from app.services.export_service import ExportService
+
+    tipo_str = body.tipo.upper()
+    if tipo_str not in ("VOTOS", "COMPARATIVOS"):
+        raise HTTPException(status_code=422, detail="tipo deve ser VOTOS ou COMPARATIVOS")
+
+    tipo = ExportJobType(tipo_str)
+    user_plan = getattr(current_user, "plano", "gabinete_free")
+
+    service = ExportService(db)
+    try:
+        job = await service.create_job(
+            user_id=current_user.id,
+            user_plan=user_plan,
+            tipo=tipo,
+            filtros=body.filtros,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+
+    # Dispatch Celery task
+    from app.tasks.export_tasks import process_export_job_task
+
+    process_export_job_task.delay(str(job.id))
+
+    logger.info("export.job.created", job_id=str(job.id), tipo=tipo_str)
+    return ExportJobResponse.from_job(job)
+
+
+@router.get("/jobs", response_model=ExportJobListResponse)
+async def list_export_jobs(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+) -> ExportJobListResponse:
+    """List the current user's export jobs."""
+    from app.services.export_service import ExportService
+
+    service = ExportService(db)
+    jobs = await service.list_jobs(current_user.id, limit, offset)
+
+    return ExportJobListResponse(
+        jobs=[ExportJobResponse.from_job(j) for j in jobs],
+        total=len(jobs),
+    )
+
+
+@router.get("/jobs/{job_id}", response_model=ExportJobResponse)
+async def get_export_job(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+) -> ExportJobResponse:
+    """Get status of a specific export job."""
+    from app.services.export_service import ExportService
+
+    service = ExportService(db)
+    job = await service.get_job(UUID(job_id), current_user.id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Exportação não encontrada")
+    return ExportJobResponse.from_job(job)
+
+
+@router.get("/jobs/{job_id}/download")
+async def download_export_job(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+) -> FileResponse:
+    """Download the CSV file for a completed export job."""
+    from app.services.export_service import ExportService
+
+    service = ExportService(db)
+    job = await service.get_job(UUID(job_id), current_user.id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Exportação não encontrada")
+
+    if job.status != ExportJobStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Exportação ainda não concluída")
+
+    if not job.file_name:
+        raise HTTPException(status_code=404, detail="Arquivo não disponível")
+
+    file_path = Path(settings.export_dir) / job.file_name
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo expirado ou removido")
+
+    # Security: ensure file_path is within export_dir (prevent path traversal)
+    resolved = file_path.resolve()
+    export_dir_resolved = Path(settings.export_dir).resolve()
+    if not str(resolved).startswith(str(export_dir_resolved)):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    return FileResponse(
+        path=str(resolved),
+        media_type="text/csv; charset=utf-8",
+        filename=job.file_name,
+    )
+
+
+@router.delete("/jobs/{job_id}", status_code=204)
+async def delete_export_job(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+) -> None:
+    """Cancel/delete an export job and its file."""
+    from app.services.export_service import ExportService
+
+    service = ExportService(db)
+    deleted = await service.delete_job(UUID(job_id), current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Exportação não encontrada")

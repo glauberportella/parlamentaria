@@ -173,6 +173,11 @@ class Settings(BaseSettings):
     api_saas_rate_limit_business: int = 60
     api_saas_rate_limit_enterprise: int = 300
 
+    # --- Export Jobs ---
+    export_dir: str = "/app/exports"
+    export_expiry_days: int = 7
+    export_max_concurrent_per_user: int = 3
+
     @property
     def is_production(self) -> bool:
         """Check if running in production."""
