@@ -33,6 +33,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -47,6 +48,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    depends_on:
+      redis-sysctl:
+        condition: service_completed_successfully
+
+  redis-sysctl:
+    image: busybox
+    privileged: true
+    command: ["sh", "-c", "sysctl -w vm.overcommit_memory=1 || true"]
+    restart: "no"
 
   celery-worker:
     build: ./backend
