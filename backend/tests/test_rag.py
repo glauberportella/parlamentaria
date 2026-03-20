@@ -616,8 +616,8 @@ class TestAdminRAGEndpoints:
         response = await client.get("/admin/rag/stats", headers={"x-api-key": "wrong"})
         assert response.status_code in (401, 403)
 
-    @patch("app.routers.admin.generate_embeddings_task", create=True)
-    @patch("app.routers.admin.reindex_all_embeddings_task", create=True)
+    @patch("app.tasks.generate_embeddings.generate_embeddings_task")
+    @patch("app.tasks.generate_embeddings.reindex_all_embeddings_task")
     async def test_rag_reindex_endpoint(self, mock_reindex, mock_gen, client, admin_headers):
         """POST /admin/rag/reindex queues the task."""
         mock_reindex.delay = MagicMock()
@@ -642,18 +642,31 @@ class TestSyncEmbeddingIntegration:
     async def test_sync_triggers_embeddings(self, mock_embedding_task):
         """sync_proposicoes_task triggers embedding generation on new data."""
         import app.tasks.sync_proposicoes as sync_mod
+        from app.tasks.celery_app import celery_app
 
         mock_embedding_task.delay = MagicMock()
 
-        with patch.object(sync_mod, "asyncio") as mock_asyncio:
-            mock_asyncio.run.return_value = {"created": 5, "updated": 0, "errors": 0, "total_fetched": 5}
-            mock_asyncio.get_event_loop.side_effect = RuntimeError()
+        # Use eager mode so Celery doesn't try to connect to Redis
+        celery_app.conf.task_always_eager = True
+        try:
+            with patch.object(sync_mod, "asyncio") as mock_asyncio:
+                mock_asyncio.run.return_value = {"created": 5, "updated": 0, "errors": 0, "total_fetched": 5}
+                mock_asyncio.get_event_loop.side_effect = RuntimeError()
 
-            # Patch the import inside the function
-            with patch.dict("sys.modules", {"app.tasks.generate_embeddings": MagicMock(generate_embeddings_task=mock_embedding_task)}):
-                sync_mod.sync_proposicoes_task()
+                # Patch the import inside the function
+                mock_gen_analysis = MagicMock()
+                mock_gen_analysis.delay = MagicMock()
+                with patch.dict("sys.modules", {
+                    "app.tasks.generate_embeddings": MagicMock(generate_embeddings_task=mock_embedding_task),
+                    "app.tasks.generate_analysis": MagicMock(generate_analysis_task=mock_gen_analysis),
+                }):
+                    # Also mock the notification trigger to avoid async event loop issues
+                    with patch.object(sync_mod, "_trigger_notifications_for_new_proposicoes"):
+                        sync_mod.sync_proposicoes_task()
 
-                mock_embedding_task.delay.assert_called_once()
+                        mock_embedding_task.delay.assert_called_once()
+        finally:
+            celery_app.conf.task_always_eager = False
 
     @patch("app.tasks.generate_embeddings.generate_embeddings_task")
     async def test_sync_no_trigger_when_no_changes(self, mock_embedding_task):

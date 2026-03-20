@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 40px;
+    }
+    .card {
+      width: 100%;
+      max-width: 1100px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 24px;
+      padding: 48px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+    .logo { font-size: 18px; font-weight: 700; color: #60a5fa; }
+    .tag { font-size: 14px; color: #94a3b8; }
+    .footer {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 14px;
+      color: #64748b;
+    }
+    .accent-blue { color: #60a5fa; }
+    .accent-green { color: #4ade80; }
+    .accent-red { color: #f87171; }
+    .accent-yellow { color: #fbbf24; }
+    .accent-purple { color: #a78bfa; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <span class="logo">🏛️ Parlamentaria</span>
+      <span class="tag">{% block tag %}{% endblock %}</span>
+    </div>
+    {% block content %}{% endblock %}
+    <div class="footer">parlamentaria.app — democracia participativa</div>
+  </div>
+</body>
+</html>

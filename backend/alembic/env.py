@@ -30,6 +30,7 @@ from app.domain.assinatura import AssinaturaRSS, AssinaturaWebhook  # noqa: F401
 from app.domain.comparativo import ComparativoVotacao  # noqa: F401
 from app.domain.document_chunk import DocumentChunk  # noqa: F401
 from app.domain.parlamentar_user import ParlamentarUser  # noqa: F401
+from app.domain.social_post import SocialPost  # noqa: F401
 
 target_metadata = Base.metadata
 

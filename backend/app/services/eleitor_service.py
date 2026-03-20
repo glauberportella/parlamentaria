@@ -535,3 +535,72 @@ class EleitorService:
             "nivel_verificacao": NivelVerificacao.VERIFICADO_TITULO.value,
             "elegivel": result.elegivel,
         }
+
+    # ------------------------------------------------------------------
+    # Data Deletion — LGPD (Lei nº 13.709/2018)
+    # ------------------------------------------------------------------
+
+    async def solicitar_exclusao(
+        self,
+        eleitor_id: uuid.UUID,
+    ) -> dict[str, int | str]:
+        """Delete all personal data of a voter (LGPD compliance).
+
+        Removes the voter record and all associated individual votes.
+        Aggregated vote totals already published are not affected as they
+        contain no personally identifiable information.
+
+        Args:
+            eleitor_id: Voter UUID to delete.
+
+        Returns:
+            Dict with deletion summary (votos_excluidos, status).
+
+        Raises:
+            NotFoundException: If voter not found.
+        """
+        from app.repositories.voto_popular import VotoPopularRepository
+
+        eleitor = await self.repo.get_by_id_or_raise(eleitor_id)
+
+        voto_repo = VotoPopularRepository(self.session)
+        votos_excluidos = await voto_repo.delete_by_eleitor(eleitor.id)
+
+        nome = eleitor.nome
+        await self.repo.delete(eleitor)
+
+        logger.info(
+            "eleitor.dados_excluidos",
+            eleitor_id=str(eleitor_id),
+            votos_excluidos=votos_excluidos,
+        )
+
+        return {
+            "status": "deleted",
+            "nome": nome,
+            "votos_excluidos": votos_excluidos,
+        }
+
+    async def solicitar_exclusao_por_chat_id(
+        self,
+        chat_id: str,
+    ) -> dict[str, int | str]:
+        """Delete all personal data of a voter identified by chat_id.
+
+        Convenience method for deletion via messaging channel.
+
+        Args:
+            chat_id: Chat ID from messaging platform.
+
+        Returns:
+            Dict with deletion summary.
+
+        Raises:
+            NotFoundException: If voter not found.
+        """
+        eleitor = await self.repo.find_by_chat_id(chat_id)
+        if eleitor is None:
+            raise NotFoundException(
+                detail="Nenhuma conta encontrada para este chat."
+            )
+        return await self.solicitar_exclusao(eleitor.id)

@@ -570,3 +570,48 @@ async def listar_temas_disponiveis(incluir_referencia_oficial: bool = False) -> 
                 "Tente novamente em instantes."
             ),
         }
+
+
+async def solicitar_exclusao_dados(tool_context: ToolContext) -> dict:
+    """Solicita a exclusão completa dos dados pessoais do eleitor (LGPD).
+
+    Remove o cadastro do eleitor e todos os seus votos individuais do sistema.
+    Totais consolidados já publicados (sem dados pessoais) não são afetados.
+    Esta ação é IRREVERSÍVEL — o eleitor precisará se cadastrar novamente.
+
+    IMPORTANTE: Confirme explicitamente com o eleitor antes de chamar esta tool.
+    Explique que todos os dados pessoais e votos serão apagados permanentemente.
+
+    Returns:
+        Dict com status da exclusão e resumo do que foi removido.
+    """
+    chat_id = _get_chat_id(tool_context)
+    if not chat_id:
+        return {
+            "status": "error",
+            "error": "Não foi possível identificar o eleitor nesta conversa.",
+        }
+
+    try:
+        async with async_session_factory() as session:
+            service = EleitorService(session)
+            resultado = await service.solicitar_exclusao_por_chat_id(chat_id)
+            await session.commit()
+
+            return {
+                "status": "success",
+                "message": (
+                    f"Dados de {resultado['nome']} foram excluídos com sucesso. "
+                    f"{resultado['votos_excluidos']} voto(s) também foram removidos."
+                ),
+                "votos_excluidos": resultado["votos_excluidos"],
+            }
+    except Exception:
+        return {
+            "status": "error",
+            "error": (
+                "Não foi possível processar a exclusão no momento. "
+                "Se você não possui cadastro, não há dados a serem removidos. "
+                "Caso contrário, tente novamente em instantes."
+            ),
+        }

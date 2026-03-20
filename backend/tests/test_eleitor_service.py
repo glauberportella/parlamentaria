@@ -264,3 +264,64 @@ class TestVincularContaPorCPF:
 
         with pytest.raises(ValidationException, match="já está vinculado"):
             await service.vincular_conta_por_cpf("new_chat_666", self.VALID_CPF)
+
+
+class TestEleitorServiceExclusao:
+    """Tests for data deletion (LGPD compliance)."""
+
+    async def test_solicitar_exclusao_removes_eleitor_and_votos(
+        self, service, db_session, eleitor_in_db, sample_proposicao_data
+    ):
+        """solicitar_exclusao should delete voter and all their votes."""
+        from app.domain.proposicao import Proposicao
+        from app.domain.voto_popular import VotoPopular, VotoEnum
+
+        # Create a proposicao and vote
+        prop = Proposicao(**sample_proposicao_data)
+        db_session.add(prop)
+        await db_session.flush()
+
+        voto = VotoPopular(
+            eleitor_id=eleitor_in_db.id,
+            proposicao_id=prop.id,
+            voto=VotoEnum.SIM,
+        )
+        db_session.add(voto)
+        await db_session.flush()
+
+        result = await service.solicitar_exclusao(eleitor_in_db.id)
+
+        assert result["status"] == "deleted"
+        assert result["votos_excluidos"] == 1
+        assert result["nome"] == "Maria Silva"
+
+        # Verify eleitor is gone
+        from sqlalchemy import select
+        from app.domain.eleitor import Eleitor
+        stmt = select(Eleitor).where(Eleitor.id == eleitor_in_db.id)
+        rows = (await db_session.execute(stmt)).scalars().all()
+        assert len(rows) == 0
+
+    async def test_solicitar_exclusao_no_votos(self, service, eleitor_in_db):
+        """solicitar_exclusao should work even if voter has no votes."""
+        result = await service.solicitar_exclusao(eleitor_in_db.id)
+
+        assert result["status"] == "deleted"
+        assert result["votos_excluidos"] == 0
+
+    async def test_solicitar_exclusao_not_found(self, service):
+        """solicitar_exclusao should raise NotFoundException for unknown ID."""
+        with pytest.raises(NotFoundException):
+            await service.solicitar_exclusao(uuid.uuid4())
+
+    async def test_solicitar_exclusao_por_chat_id(self, service, eleitor_in_db):
+        """solicitar_exclusao_por_chat_id should find and delete the voter."""
+        result = await service.solicitar_exclusao_por_chat_id("12345678")
+
+        assert result["status"] == "deleted"
+        assert result["nome"] == "Maria Silva"
+
+    async def test_solicitar_exclusao_por_chat_id_not_found(self, service):
+        """solicitar_exclusao_por_chat_id should raise for unknown chat_id."""
+        with pytest.raises(NotFoundException, match="Nenhuma conta"):
+            await service.solicitar_exclusao_por_chat_id("nonexistent")
