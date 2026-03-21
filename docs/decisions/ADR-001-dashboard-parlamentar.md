@@ -718,7 +718,7 @@ NEXTAUTH_SECRET=<random-32-chars>
 ## 12. Docker Compose (Atualização)
 
 ```yaml
-# docker-compose.yml — adicionar serviço do dashboard (dev)
+# docker-compose.yaml — adicionar serviço do dashboard (dev)
 services:
   # ... serviços existentes ...
 

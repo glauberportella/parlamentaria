@@ -117,7 +117,7 @@ mypy app/
 parlamentaria/
 ├── AGENTS.md              # ⭐ Fonte de verdade — leia primeiro
 ├── CONTRIBUTING.md         # Este arquivo
-├── docker-compose.yml      # Orquestração dos serviços
+├── docker-compose.yaml      # Orquestração dos serviços
 ├── agents/                 # Agentes de IA (Google ADK)
 │   └── parlamentar/        # Root Agent + Sub-Agents + Tools
 ├── channels/               # Adapters de mensageria

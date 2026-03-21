@@ -442,7 +442,7 @@ parlamentaria/
 │   ├── agents.md                     # Documentação dos agentes ADK
 │   └── channels.md                   # Documentação dos canais
 │
-├── docker-compose.yml                # Orquestração principal
+├── docker-compose.yaml                # Orquestração principal
 └── AGENTS.md                         # Guia para agentes IA
 ```
 

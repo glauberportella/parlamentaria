@@ -12,7 +12,6 @@
 3. [Deploy Produção Escalável (GCP)](#3-deploy-produção-escalável-gcp)
 4. [Referência de Variáveis de Ambiente](#4-referência-de-variáveis-de-ambiente)
 5. [Checklist Pré-Deploy](#5-checklist-pré-deploy)
-6. [Billing & Stripe (Premium)](#6-billing--stripe-premium)
 
 ---
 
@@ -356,7 +355,7 @@ SEU_DOMINIO.com {
 
 ```bash
 # Build e start com o override de produção
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+docker compose -f docker-compose.yaml -f docker-compose.prod.yml up --build -d
 
 # Executar migrations
 docker compose exec backend alembic upgrade head
@@ -377,7 +376,7 @@ cd parlamentaria
 git pull origin main
 
 # Rebuild e restart (zero-downtime não garantido em VM única)
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+docker compose -f docker-compose.yaml -f docker-compose.prod.yml up --build -d
 
 # Backup do PostgreSQL
 docker compose exec db pg_dump -U parlamentaria parlamentaria > backup_$(date +%Y%m%d).sql
@@ -882,126 +881,3 @@ Configuração recomendada:
 | **CI/CD**             | N/A               | Manual (git pull)   | GitHub Actions         |
 | **Tempo de setup**    | ~15 min           | ~1 hora             | ~3–4 horas            |
 | **Recomendado para**  | Desenvolvimento   | MVP / até ~500 eleitores | 500+ eleitores    |
-
----
-
-## 6. Billing & Stripe (Premium)
-
-A monetização usa o **Stripe** para processar pagamentos (BRL) e gerenciar
-assinaturas. O plugin `parlamentaria-premium` (repo separado) é montado
-no backend core via `premium.plugin.register_premium_plugin()`.
-
-### 6.1 Pré-requisitos
-
-1. Conta Stripe ativa (modo teste durante desenvolvimento).
-2. Plugin `parlamentaria-premium` instalado (pip install ou montado via Docker volume).
-3. `RESEND_API_KEY` configurada — usada para emails transacionais de billing.
-
-### 6.2 Stripe Dashboard — Setup de Produtos e Preços
-
-Crie os seguintes **Products** e **Prices** no [Stripe Dashboard](https://dashboard.stripe.com/products):
-
-| Produto                         | Slug                            | Preço Mensal (BRL) | Price ID var env                               |
-|---------------------------------|---------------------------------|---------------------|------------------------------------------------|
-| Cidadão Premium                 | `cidadao_premium_mensal`        | R$ 9,90             | `STRIPE_PRICE_CIDADAO_PREMIUM_MENSAL`          |
-| Cidadão Premium (Anual)         | `cidadao_premium_anual`         | R$ 99,90/ano        | `STRIPE_PRICE_CIDADAO_PREMIUM_ANUAL`           |
-| Gabinete Pro                    | `gabinete_pro_mensal`           | R$ 297,00           | `STRIPE_PRICE_GABINETE_PRO_MENSAL`             |
-| Gabinete Enterprise             | `gabinete_enterprise_mensal`    | R$ 997,00           | `STRIPE_PRICE_GABINETE_ENTERPRISE_MENSAL`      |
-| API Developer                   | `api_developer_mensal`          | R$ 197,00           | `STRIPE_PRICE_API_DEVELOPER_MENSAL`            |
-| API Business                    | `api_business_mensal`           | R$ 497,00           | `STRIPE_PRICE_API_BUSINESS_MENSAL`             |
-| API Enterprise                  | `api_enterprise_mensal`         | R$ 1.997,00         | `STRIPE_PRICE_API_ENTERPRISE_MENSAL`           |
-
-### 6.3 Stripe Webhook
-
-Configure o webhook endpoint no Stripe Dashboard:
-
-```
-URL: https://<seu-dominio>/billing/webhooks/stripe
-Eventos a escutar:
-  - checkout.session.completed
-  - invoice.paid
-  - invoice.payment_failed
-  - customer.subscription.updated
-  - customer.subscription.deleted
-  - customer.subscription.trial_will_end
-```
-
-Copie o **Webhook Signing Secret** (`whsec_...`) para a variável `STRIPE_WEBHOOK_SECRET`.
-
-### 6.4 Customer Portal
-
-Configure o [Stripe Customer Portal](https://dashboard.stripe.com/settings/billing/portal):
-
-- **Branding**: logo Parlamentaria, cores verde (#009c3b) e azul (#002776).
-- **Permitir**: atualizar método de pagamento, cancelar assinatura, ver faturas.
-- **Redirect**: `https://<dashboard-url>/configuracoes` após ações no portal.
-
-### 6.5 Variáveis de Ambiente — Billing
-
-```bash
-# Stripe
-STRIPE_SECRET_KEY=sk_live_...           # ou sk_test_... em dev
-STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Stripe Price IDs (criados na seção 6.2)
-STRIPE_PRICE_CIDADAO_PREMIUM_MENSAL=price_...
-STRIPE_PRICE_CIDADAO_PREMIUM_ANUAL=price_...
-STRIPE_PRICE_GABINETE_PRO_MENSAL=price_...
-STRIPE_PRICE_GABINETE_ENTERPRISE_MENSAL=price_...
-STRIPE_PRICE_API_DEVELOPER_MENSAL=price_...
-STRIPE_PRICE_API_BUSINESS_MENSAL=price_...
-STRIPE_PRICE_API_ENTERPRISE_MENSAL=price_...
-
-# Resend (emails transacionais de billing)
-RESEND_API_KEY=re_...
-EMAIL_FROM="Parlamentaria <noreply@parlamentaria.app>"
-```
-
-### 6.6 Docker — Montando o Plugin Premium
-
-```yaml
-# docker-compose.yml (adicionar ou editar)
-services:
-  backend:
-    volumes:
-      - ../parlamentaria-premium:/app/parlamentaria-premium:ro
-    environment:
-      - PYTHONPATH=/app:/app/parlamentaria-premium
-```
-
-Ou instale como pacote:
-
-```bash
-pip install -e /path/to/parlamentaria-premium
-```
-
-### 6.7 Verificação Pós-Deploy
-
-```bash
-# 1. Health check do billing
-curl https://<seu-dominio>/health/detailed | jq .stripe
-
-# 2. Testar criação de checkout (modo teste)
-curl -X POST https://<seu-dominio>/billing/cidadao/checkout \
-  -H "Authorization: Bearer <jwt_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"plano": "cidadao_premium_mensal", "periodo": "mensal"}'
-# Deve retornar { "checkout_url": "https://checkout.stripe.com/..." }
-
-# 3. Confirmar webhook recebe eventos
-# Use o Stripe CLI para testar:
-stripe listen --forward-to localhost:8000/billing/webhooks/stripe
-stripe trigger checkout.session.completed
-```
-
-### 6.8 Checklist Billing
-
-- [ ] Produtos e Prices criados no Stripe Dashboard
-- [ ] Webhook endpoint configurado com todos os eventos
-- [ ] `STRIPE_WEBHOOK_SECRET` configurado
-- [ ] Customer Portal customizado
-- [ ] `RESEND_API_KEY` configurado para emails de billing
-- [ ] Plugin premium montado/instalado no backend
-- [ ] Variáveis `STRIPE_PRICE_*` todas preenchidas
-- [ ] Teste end-to-end: checkout → webhook → plano ativado
