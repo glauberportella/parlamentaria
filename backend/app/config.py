@@ -165,8 +165,8 @@ class Settings(BaseSettings):
     billing_cancel_url_cidadao: str = "https://t.me/ParlamentariaBot?start=billing_cancel"
     billing_success_url_gabinete: str = "http://localhost:3000/configuracoes/assinatura?status=success"
     billing_cancel_url_gabinete: str = "http://localhost:3000/planos?status=cancel"
-    billing_success_url_api: str = "http://localhost:3001/api/sucesso"
-    billing_cancel_url_api: str = "http://localhost:3001/api/cadastro?status=cancel"
+    billing_success_url_api: str = "http://localhost:3001/api-saas/cadastro?status=success"
+    billing_cancel_url_api: str = "http://localhost:3001/api-saas/cadastro?status=cancel"
 
     # API SaaS rate limits
     api_saas_rate_limit_developer: int = 10  # req/min
