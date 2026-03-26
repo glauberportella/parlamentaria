@@ -30,3 +30,11 @@ def load_premium_plugin(app) -> bool:
     except ImportError:
         logger.info("premium.plugin.not_installed", msg="Running in open-source mode")
         return False
+    except Exception as exc:
+        logger.error(
+            "premium.plugin.load_error",
+            error=str(exc),
+            exc_type=type(exc).__name__,
+            msg="Premium package found but failed to register. Check dependencies.",
+        )
+        return False
