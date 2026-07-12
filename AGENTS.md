@@ -194,7 +194,7 @@ block-beta
 ```
 parlamentaria/
 ├── AGENTS.md                         # Este arquivo — guia para agentes IA
-├── docker-compose.yml                # Orquestração dos serviços
+├── docker-compose.yaml                # Orquestração dos serviços
 ├── .env.example                      # Variáveis de ambiente (template)
 ├── .github/
 │   └── workflows/

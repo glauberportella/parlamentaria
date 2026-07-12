@@ -2,7 +2,7 @@
 # Override para deploy homelab SEM LLM local — usa Gemini API.
 #
 # Uso:
-#   docker compose -f docker-compose.yml -f docker-compose.homelab-gemini.yml up -d --build
+#   docker compose -f docker-compose.yaml -f docker-compose.homelab-gemini.yml up -d --build
 #
 # Muito mais simples: sem Ollama, sem GPU, sem download de modelo.
 

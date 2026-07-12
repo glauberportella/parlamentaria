@@ -125,3 +125,54 @@ async def admin_stats(
     """Return summary statistics for the admin dashboard."""
     service = ParlamentarAuthService(db)
     return await service.count_users()
+
+
+# ─── Webhooks (outbound) ───────────────────────────
+
+
+@router.get("/webhooks")
+async def list_admin_webhooks(
+    _admin: ParlamentarUserResponse = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """List all outbound webhook subscriptions for admin dashboard."""
+    from sqlalchemy import select
+
+    from app.domain.assinatura import AssinaturaWebhook
+
+    result = await db.execute(
+        select(AssinaturaWebhook).order_by(AssinaturaWebhook.data_criacao.desc())
+    )
+    webhooks = result.scalars().all()
+    return [
+        {
+            "id": str(wh.id),
+            "nome": wh.nome,
+            "url": wh.url,
+            "eventos": wh.eventos,
+            "ativo": wh.ativo,
+            "falhas_consecutivas": wh.falhas_consecutivas,
+            "ultimo_dispatch": wh.ultimo_dispatch.isoformat() if wh.ultimo_dispatch else None,
+            "data_criacao": wh.data_criacao.isoformat() if wh.data_criacao else None,
+        }
+        for wh in webhooks
+    ]
+
+
+@router.post("/webhooks/{webhook_id}/reactivate")
+async def reactivate_admin_webhook(
+    webhook_id: str,
+    _admin: ParlamentarUserResponse = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Reactivate a webhook and reset its failure counter."""
+    import uuid as _uuid
+
+    from app.services.publicacao_service import PublicacaoService
+
+    service = PublicacaoService(db)
+    webhook = await service.get_webhook_by_id(_uuid.UUID(webhook_id))
+    webhook.ativo = True
+    webhook.falhas_consecutivas = 0
+    await db.flush()
+    return {"status": "reactivated", "id": webhook_id}

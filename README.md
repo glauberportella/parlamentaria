@@ -196,7 +196,7 @@ uvicorn app.main:app --reload --port 8000
 ```
 parlamentaria/
 ├── AGENTS.md              # Guia completo para desenvolvimento (fonte de verdade)
-├── docker-compose.yml     # Orquestração dos serviços
+├── docker-compose.yaml     # Orquestração dos serviços
 ├── .env.example           # Template de variáveis de ambiente
 │
 ├── agents/                # Agentes de IA (Google ADK)

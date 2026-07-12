@@ -355,7 +355,7 @@ SEU_DOMINIO.com {
 
 ```bash
 # Build e start com o override de produção
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+docker compose -f docker-compose.yaml -f docker-compose.prod.yml up --build -d
 
 # Executar migrations
 docker compose exec backend alembic upgrade head
@@ -376,7 +376,7 @@ cd parlamentaria
 git pull origin main
 
 # Rebuild e restart (zero-downtime não garantido em VM única)
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+docker compose -f docker-compose.yaml -f docker-compose.prod.yml up --build -d
 
 # Backup do PostgreSQL
 docker compose exec db pg_dump -U parlamentaria parlamentaria > backup_$(date +%Y%m%d).sql
