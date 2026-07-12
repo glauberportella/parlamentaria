@@ -66,10 +66,10 @@ class SocialPost(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     tipo: Mapped[TipoPostSocial] = mapped_column(
-        Enum(TipoPostSocial), nullable=False
+        Enum(TipoPostSocial, name="tipo_post_social"), nullable=False
     )
     rede: Mapped[RedeSocial] = mapped_column(
-        Enum(RedeSocial), nullable=False
+        Enum(RedeSocial, name="rede_social"), nullable=False
     )
     proposicao_id: Mapped[int | None] = mapped_column(
         ForeignKey("proposicoes.id"), nullable=True
@@ -87,7 +87,7 @@ class SocialPost(Base):
 
     # Publication
     status: Mapped[StatusPost] = mapped_column(
-        Enum(StatusPost), default=StatusPost.RASCUNHO, nullable=False
+        Enum(StatusPost, name="status_post"), default=StatusPost.RASCUNHO, nullable=False
     )
     rede_post_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     publicado_em: Mapped[datetime | None] = mapped_column(
