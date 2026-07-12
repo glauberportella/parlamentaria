@@ -368,7 +368,7 @@ async def _handle_premium_checkout(chat_id: str, periodo: str) -> dict:
 
     try:
         from premium.agents.premium_tools import criar_checkout_session
-        result = await criar_checkout_session(chat_id)
+        result = await criar_checkout_session(chat_id, plano_slug=plano_slug)
 
         if result.get("status") == "success" and result.get("checkout_url"):
             return {

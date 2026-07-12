@@ -70,7 +70,7 @@ def upgrade() -> None:
         sa.Column("nome", sa.String(200), nullable=False),
         sa.Column("plano", sa.String(20), nullable=False),
         sa.Column("ativo", sa.Boolean, server_default="true"),
-        sa.Column("requests_mes_atual", sa.Integer, server_default="0"),
+        sa.Column("requests_mes", sa.Integer, server_default="0"),
         sa.Column("max_requests_mes", sa.Integer, nullable=False),
         sa.Column("rate_limit_por_minuto", sa.Integer, nullable=False),
         sa.Column("ultimo_uso", sa.DateTime(timezone=True), nullable=True),

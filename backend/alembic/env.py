@@ -32,11 +32,31 @@ from app.domain.document_chunk import DocumentChunk  # noqa: F401
 from app.domain.parlamentar_user import ParlamentarUser  # noqa: F401
 from app.domain.social_post import SocialPost  # noqa: F401
 
+# Import premium billing models if available, so Alembic knows they are managed
+try:
+    from premium.domain.billing import (  # noqa: F401
+        Assinatura, APIKey, UsageRecord,
+    )
+except ImportError:
+    pass  # Premium plugin not installed — billing tables created by migration 0013
+
 target_metadata = Base.metadata
 
 # Override URL from env if available
 from app.config import settings
 config.set_main_option("sqlalchemy.url", settings.database_url)
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    """Exclude billing_* tables from autogenerate.
+
+    These tables are managed by migration 0013 (core) and the premium plugin.
+    Without this exclusion, Alembic autogenerate would try to drop them
+    when premium models are not imported.
+    """
+    if type_ == "table" and name.startswith("billing_"):
+        return False
+    return True
 
 
 def run_migrations_offline() -> None:
@@ -50,6 +70,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -58,7 +79,11 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run the actual migrations with a live connection."""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
