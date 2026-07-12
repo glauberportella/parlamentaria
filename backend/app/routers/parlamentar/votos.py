@@ -14,10 +14,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db
 from app.domain.eleitor import Eleitor
 from app.domain.proposicao import Proposicao
-from app.domain.voto_popular import VotoPopular, VotoEnum
+from app.domain.voto_popular import VotoPopular, VotoEnum, TipoVoto
 from app.logging import get_logger
 from app.routers.parlamentar.auth import get_current_parlamentar_user
 from app.schemas.parlamentar import ParlamentarUserResponse
+
+# Premium plan gate — only enforced when parlamentaria-premium is installed
+try:
+    from premium.billing.gabinete_gate import require_gabinete_plan
+
+    _require_pro = require_gabinete_plan("gabinete_pro", "gabinete_enterprise")
+except ImportError:
+    _require_pro = get_current_parlamentar_user
 
 logger = get_logger(__name__)
 
@@ -82,6 +90,7 @@ class VotosRankingItem(BaseModel):
 
 @router.get("/por-tema", response_model=list[VotosPorTemaItem])
 async def votos_por_tema(
+    tipo_voto: str | None = Query(default=None, description="Filtrar por tipo de voto: OFICIAL ou OPINIAO"),
     db: AsyncSession = Depends(get_db),
     _current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
 ) -> list[VotosPorTemaItem]:
@@ -104,8 +113,12 @@ async def votos_por_tema(
             func.count(case((VotoPopular.voto == VotoEnum.ABSTENCAO, 1))).label("abstencao"),
         )
         .join(Proposicao, VotoPopular.proposicao_id == Proposicao.id)
-        .group_by(Proposicao.id)
     )
+
+    if tipo_voto and tipo_voto.upper() in ("OFICIAL", "OPINIAO"):
+        stmt = stmt.where(VotoPopular.tipo_voto == TipoVoto(tipo_voto.upper()))
+
+    stmt = stmt.group_by(Proposicao.id)
 
     result = await db.execute(stmt)
     rows = result.all()
@@ -140,8 +153,9 @@ async def votos_por_tema(
 
 @router.get("/por-uf", response_model=list[VotosPorUFItem])
 async def votos_por_uf(
+    tipo_voto: str | None = Query(default=None, description="Filtrar por tipo de voto: OFICIAL ou OPINIAO"),
     db: AsyncSession = Depends(get_db),
-    _current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
+    _current_user: ParlamentarUserResponse = Depends(_require_pro),
 ) -> list[VotosPorUFItem]:
     """Aggregate popular votes grouped by eleitor UF (state).
 
@@ -157,9 +171,12 @@ async def votos_por_uf(
             func.count(case((VotoPopular.voto == VotoEnum.ABSTENCAO, 1))).label("abstencao"),
         )
         .join(Eleitor, VotoPopular.eleitor_id == Eleitor.id)
-        .group_by(Eleitor.uf)
-        .order_by(desc("total_votos"))
     )
+
+    if tipo_voto and tipo_voto.upper() in ("OFICIAL", "OPINIAO"):
+        stmt = stmt.where(VotoPopular.tipo_voto == TipoVoto(tipo_voto.upper()))
+
+    stmt = stmt.group_by(Eleitor.uf).order_by(desc("total_votos"))
 
     result = await db.execute(stmt)
     rows = result.all()
@@ -179,6 +196,7 @@ async def votos_por_uf(
 @router.get("/timeline", response_model=list[VotosTimelineItem])
 async def votos_timeline(
     dias: int = Query(default=30, ge=1, le=365, description="Número de dias para o histórico"),
+    tipo_voto: str | None = Query(default=None, description="Filtrar por tipo de voto: OFICIAL ou OPINIAO"),
     db: AsyncSession = Depends(get_db),
     _current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
 ) -> list[VotosTimelineItem]:
@@ -205,9 +223,12 @@ async def votos_timeline(
             func.count(case((VotoPopular.voto == VotoEnum.ABSTENCAO, 1))).label("abstencao"),
         )
         .where(VotoPopular.data_voto >= cutoff)
-        .group_by(vote_date)
-        .order_by(vote_date)
     )
+
+    if tipo_voto and tipo_voto.upper() in ("OFICIAL", "OPINIAO"):
+        stmt = stmt.where(VotoPopular.tipo_voto == TipoVoto(tipo_voto.upper()))
+
+    stmt = stmt.group_by(vote_date).order_by(vote_date)
 
     result = await db.execute(stmt)
     rows = result.all()
@@ -227,6 +248,7 @@ async def votos_timeline(
 @router.get("/ranking", response_model=list[VotosRankingItem])
 async def votos_ranking(
     limite: int = Query(default=10, ge=1, le=50, description="Número de proposições no ranking"),
+    tipo_voto: str | None = Query(default=None, description="Filtrar por tipo de voto: OFICIAL ou OPINIAO"),
     db: AsyncSession = Depends(get_db),
     _current_user: ParlamentarUserResponse = Depends(get_current_parlamentar_user),
 ) -> list[VotosRankingItem]:
@@ -247,7 +269,13 @@ async def votos_ranking(
             func.count(case((VotoPopular.voto == VotoEnum.ABSTENCAO, 1))).label("abstencao"),
         )
         .join(VotoPopular, VotoPopular.proposicao_id == Proposicao.id)
-        .group_by(Proposicao.id, Proposicao.tipo, Proposicao.numero, Proposicao.ano, Proposicao.ementa)
+    )
+
+    if tipo_voto and tipo_voto.upper() in ("OFICIAL", "OPINIAO"):
+        stmt = stmt.where(VotoPopular.tipo_voto == TipoVoto(tipo_voto.upper()))
+
+    stmt = (
+        stmt.group_by(Proposicao.id, Proposicao.tipo, Proposicao.numero, Proposicao.ano, Proposicao.ementa)
         .order_by(desc("total_votos"))
         .limit(limite)
     )

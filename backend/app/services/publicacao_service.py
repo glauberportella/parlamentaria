@@ -357,13 +357,16 @@ class PublicacaoService:
         payload["evento"] = evento
         payload["timestamp"] = datetime.now(timezone.utc).isoformat()
 
+        # Try premium webhook enrichment (adds IA analysis, per-UF data)
+        enriched_payload = await self._try_enrich_payload(payload)
+
         webhooks = await self.list_webhooks_for_event(evento)
         stats = {"total": len(webhooks), "success": 0, "failed": 0}
 
         for webhook in webhooks:
             try:
                 async with self.session.begin_nested():
-                    ok = await self.dispatch_webhook(webhook, payload)
+                    ok = await self.dispatch_webhook(webhook, enriched_payload)
                 if ok:
                     stats["success"] += 1
                 else:
@@ -378,3 +381,14 @@ class PublicacaoService:
 
         logger.info("publicacao.event.dispatched", evento=evento, **stats)
         return stats
+
+    async def _try_enrich_payload(self, payload: dict) -> dict:
+        """Attempt premium webhook enrichment (ImportError-safe)."""
+        try:
+            from premium.billing.webhook_enrichment import enrich_webhook_payload
+            return await enrich_webhook_payload(self.session, payload.copy())
+        except ImportError:
+            return payload
+        except Exception:
+            logger.debug("publicacao.webhook.enrich_skipped", exc_info=True)
+            return payload

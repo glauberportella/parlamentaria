@@ -231,10 +231,10 @@ volumes:
 
 ```bash
 # Subir tudo com Llama
-docker compose -f docker-compose.yml -f docker-compose.llama.yml up --build
+docker compose -f docker-compose.yaml -f docker-compose.llama.yml up --build
 
 # Primeira vez: aguarde o download do modelo (~8.5 GB)
-docker compose -f docker-compose.yml -f docker-compose.llama.yml logs -f ollama-pull
+docker compose -f docker-compose.yaml -f docker-compose.llama.yml logs -f ollama-pull
 ```
 
 ---
@@ -376,7 +376,7 @@ cp .env.example .env
 nano .env  # Configurar AGENT_MODEL e demais variáveis
 
 # Subir com Llama
-docker compose -f docker-compose.yml -f docker-compose.llama.yml up --build -d
+docker compose -f docker-compose.yaml -f docker-compose.llama.yml up --build -d
 ```
 
 ### 4.5 Systemd para Ollama (sem Docker)
@@ -776,7 +776,7 @@ Referência completa para rodar Parlamentaria + Llama em qualquer ambiente:
 
 ```yaml
 # docker-compose.llama.yml
-# Uso: docker compose -f docker-compose.yml -f docker-compose.llama.yml up --build
+# Uso: docker compose -f docker-compose.yaml -f docker-compose.llama.yml up --build
 
 services:
   ollama:

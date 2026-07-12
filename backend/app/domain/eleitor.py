@@ -117,6 +117,20 @@ class Eleitor(Base):
         doc="Timestamp of most recent digest sent to prevent duplicates",
     )
 
+    # --- Billing fields (populated by premium plugin when installed) ---
+    plano: Mapped[str] = mapped_column(
+        String(20), default="GRATUITO", server_default="GRATUITO",
+        doc="Plano de assinatura: GRATUITO ou PREMIUM",
+    )
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String(100), unique=True, nullable=True,
+        doc="Stripe customer ID (cus_xxx)",
+    )
+    billing_assinatura_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True,
+        doc="FK para billing_assinaturas (premium)",
+    )
+
     data_cadastro: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

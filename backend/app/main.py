@@ -123,3 +123,8 @@ app.include_router(cidadao.router)
 app.include_router(social_admin.router)
 app.include_router(meta_webhook.router)
 app.include_router(parlamentar_router)
+
+# Try to load premium plugin (billing, API SaaS, etc.)
+from app.extensions import load_premium_plugin
+
+load_premium_plugin(app)

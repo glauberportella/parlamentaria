@@ -9,7 +9,7 @@ packages = ["app"]
 name = "parlamentaria"
 version = "0.1.0"
 description = "Plataforma agêntica que conecta eleitores às decisões legislativas da Câmara dos Deputados"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",

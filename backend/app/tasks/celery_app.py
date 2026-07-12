@@ -5,24 +5,35 @@ from celery.schedules import crontab
 
 from app.config import settings
 
+# Build the task include list — premium tasks are added at import time
+# so Celery workers auto-discover them even though premium is loaded
+# dynamically at FastAPI startup (not at Celery startup).
+_task_modules = [
+    "app.tasks.sync_proposicoes",
+    "app.tasks.sync_votacoes",
+    "app.tasks.sync_deputados",
+    "app.tasks.sync_partidos",
+    "app.tasks.sync_eventos",
+    "app.tasks.notificar_eleitores",
+    "app.tasks.dispatch_webhooks",
+    "app.tasks.gerar_comparativos",
+    "app.tasks.generate_embeddings",
+    "app.tasks.generate_analysis",
+    "app.tasks.send_digests",
+    "app.tasks.social_media_tasks",
+    "app.tasks.export_tasks",
+]
+try:
+    import premium  # noqa: F401 — check if premium package is installed
+    _task_modules.append("premium.tasks.billing_tasks")
+except ImportError:
+    pass
+
 celery_app = Celery(
     "parlamentaria",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=[
-        "app.tasks.sync_proposicoes",
-        "app.tasks.sync_votacoes",
-        "app.tasks.sync_deputados",
-        "app.tasks.sync_partidos",
-        "app.tasks.sync_eventos",
-        "app.tasks.notificar_eleitores",
-        "app.tasks.dispatch_webhooks",
-        "app.tasks.gerar_comparativos",
-        "app.tasks.generate_embeddings",
-        "app.tasks.generate_analysis",
-        "app.tasks.send_digests",
-        "app.tasks.social_media_tasks",
-    ],
+    include=_task_modules,
 )
 
 celery_app.conf.update(
@@ -169,6 +180,12 @@ celery_app.conf.beat_schedule = {
     "social-atualizar-metricas": {
         "task": "app.tasks.social_media_tasks.atualizar_metricas_task",
         "schedule": crontab(hour="0,6,12,18", minute=15),
+        "args": (),
+    },
+    # === Export cleanup — remove expired export files daily at 04:00 ===
+    "cleanup-expired-exports": {
+        "task": "app.tasks.export_tasks.cleanup_expired_exports_task",
+        "schedule": crontab(hour=4, minute=0),
         "args": (),
     },
 }

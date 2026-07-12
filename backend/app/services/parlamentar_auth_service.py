@@ -56,6 +56,7 @@ class ParlamentarAuthService:
                 "email": user.email,
                 "tipo": user.tipo.value,
                 "deputado_id": user.deputado_id,
+                "plano": getattr(user, "plano", "FREE"),
                 "type": "access",
             },
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes),

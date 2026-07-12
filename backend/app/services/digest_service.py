@@ -35,6 +35,11 @@ MAX_DESTAQUES_PER_DIGEST = 3
 MAX_COMPARATIVOS_PER_DIGEST = 3
 MAX_EVENTOS_PER_DIGEST = 3
 
+# Premium voters get richer digests
+MAX_PROPOSICOES_PREMIUM = 10
+MAX_DESTAQUES_PREMIUM = 5
+MAX_COMPARATIVOS_PREMIUM = 5
+
 
 class DigestService:
     """Generates and sends periodic digest notifications.
@@ -396,6 +401,8 @@ class DigestService:
     ) -> str:
         """Generate a complete digest for a single voter.
 
+        Premium voters get richer digests with more items per section.
+
         Args:
             voter: The voter to generate the digest for.
             periodo_dias: Number of days to look back (1 for daily, 7 for weekly).
@@ -406,13 +413,20 @@ class DigestService:
         since = datetime.now(timezone.utc) - timedelta(days=periodo_dias)
         periodo_label = "esta semana" if periodo_dias >= 7 else "hoje"
 
-        # Gather all content in parallel (sequential here, but fast queries)
+        # Premium voters get richer digests
+        is_premium = _is_premium_voter(voter)
+        props_limit = MAX_PROPOSICOES_PREMIUM if is_premium else MAX_PROPOSICOES_PER_DIGEST
+        dest_limit = MAX_DESTAQUES_PREMIUM if is_premium else MAX_DESTAQUES_PER_DIGEST
+        comp_limit = MAX_COMPARATIVOS_PREMIUM if is_premium else MAX_COMPARATIVOS_PER_DIGEST
+
+        # Gather all content
         proposicoes_relevantes = await self.get_new_proposicoes(
             since=since,
             temas=voter.temas_interesse,
+            limit=props_limit,
         )
-        destaques = await self.get_most_voted_proposicoes(since=since)
-        comparativos = await self.get_recent_comparativos(since=since)
+        destaques = await self.get_most_voted_proposicoes(since=since, limit=dest_limit)
+        comparativos = await self.get_recent_comparativos(since=since, limit=comp_limit)
         eventos = await self.get_upcoming_eventos()
         stats = await self.count_platform_stats(since=since)
 
@@ -493,6 +507,17 @@ class DigestService:
 
         logger.info("digest.complete", frequencia=frequencia.value, **stats)
         return stats
+
+
+def _is_premium_voter(voter: Eleitor) -> bool:
+    """Check if voter has a premium plan (ImportError-safe)."""
+    try:
+        from premium.domain.billing import PlanoEleitor
+
+        plano_str = getattr(voter, "plano", "GRATUITO")
+        return plano_str == PlanoEleitor.PREMIUM.value
+    except ImportError:
+        return False
 
     # ------------------------------------------------------------------
     # Preference management

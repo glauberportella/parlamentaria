@@ -144,8 +144,30 @@ def main_menu_keyboard() -> list[list[Button]]:
             Button(text="🔔 Notificações", callback_data="menu:notificacoes"),
         ],
         [
+            Button(text="⭐ Premium", callback_data="menu:premium"),
             Button(text="⚙️ Meu Perfil", callback_data="menu:perfil"),
+        ],
+        [
             Button(text="❓ Ajuda", callback_data="menu:ajuda"),
+        ],
+    ]
+
+
+def premium_keyboard() -> list[list[Button]]:
+    """Build the premium subscription keyboard.
+
+    Returns:
+        Rows with subscription options.
+    """
+    return [
+        [
+            Button(text="💳 Assinar Mensal (R$ 14,90)", callback_data="premium:checkout:mensal"),
+        ],
+        [
+            Button(text="💰 Assinar Anual (R$ 99,00)", callback_data="premium:checkout:anual"),
+        ],
+        [
+            Button(text="⬅️ Voltar ao Menu", callback_data="menu:main"),
         ],
     ]
 
